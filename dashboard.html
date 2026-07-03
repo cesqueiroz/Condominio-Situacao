@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Condomínio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f0f4f8;color:#333}
+header{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:1.35em;font-weight:700}
+header p{font-size:0.82em;opacity:.8;margin-top:3px}
+.upd{font-size:0.78em;opacity:.7;text-align:right}
+.tabs{display:flex;background:#1a4068;overflow-x:auto}
+.tab{padding:13px 22px;color:rgba(255,255,255,.6);cursor:pointer;border-bottom:3px solid transparent;font-size:.92em;white-space:nowrap;transition:.2s}
+.tab.active,.tab:hover{color:#fff;border-bottom-color:#7EC8E3}
+.content{padding:22px;max-width:1280px;margin:0 auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px 24px;margin-bottom:20px;box-shadow:0 1px 6px rgba(0,0,0,.09)}
+.card h2{font-size:1em;color:#1F4E79;margin-bottom:14px;border-bottom:2px solid #BDD7EE;padding-bottom:7px;text-transform:uppercase;letter-spacing:.4px}
+.filters{display:flex;gap:14px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.filters label{font-size:.85em;color:#555;display:flex;align-items:center;gap:6px}
+select{padding:5px 10px;border:1px solid #ccc;border-radius:5px;font-size:.88em;background:#fff}
+.chart-wrap{position:relative;height:300px}
+table{width:100%;border-collapse:collapse;font-size:.86em}
+th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+td{padding:7px 10px;border-bottom:1px solid #eaecf0}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f5f8fc}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.total-row td{background:#D9E1F2;font-weight:700}
+.neg{color:#c0392b}.pos{color:#27ae60}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:#fff;border-radius:10px;padding:15px 18px;box-shadow:0 1px 6px rgba(0,0,0,.08);border-left:4px solid #2E75B6}
+.kpi.kpi-receita{border-left-color:#27ae60}
+.kpi.kpi-desp{border-left-color:#c0392b}
+.kpi.kpi-saldo{border-left-color:#1F4E79}
+.kpi.kpi-inad{border-left-color:#e67e22}
+.kpi-lbl{font-size:.75em;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.kpi-val{font-size:1.45em;font-weight:700;color:#1F4E79;margin-top:4px}
+.kpi-val.neg{color:#c0392b}.kpi-val.pos{color:#27ae60}
+.kpi-sub{font-size:.78em;color:#999;margin-top:3px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:900px){.row2,.row3{grid-template-columns:1fr}}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78em}
+.b-red{background:#fde8e8;color:#c00}.b-grn{background:#e6f4ea;color:#2d7a3a}.b-blu{background:#e8f0fe;color:#1a56b0}
+.saldo-bar{height:8px;border-radius:4px;background:#eee;margin-top:8px;overflow:hidden}
+.saldo-bar-fill{height:100%;border-radius:4px;background:#27ae60;transition:width .4s}
+.saldo-bar-fill.neg-fill{background:#c0392b}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🏢 Dashboard — Condomínio Edifício Curitiba e Porto Alegre</h1>
+    <p>Prestação de contas — visão consolidada</p>
+  </div>
+  <div class="upd">Atualizado em<br><span id="upd-ts"></span></div>
+</header>
+<div class="tabs">
+  <div class="tab active"  onclick="showTab('inicio','this')">🏠 Início</div>
+  <div class="tab"         onclick="showTab('despesas','this')">📊 Despesas Mensais</div>
+  <div class="tab"         onclick="showTab('ordinaria','this')">💰 Conta Ordinária</div>
+  <div class="tab"         onclick="showTab('inad','this')">⚠️ Inadimplentes</div>
+  <div class="tab"         onclick="showTab('fundos','this')">🏦 Fundos</div>
+  <div class="tab"         onclick="showTab('consumos','this')">📉 Consumos & Contas</div>
+</div>
+<div class="content">
+
+  <!-- TAB: INÍCIO -->
+  <div id="sec-inicio" class="section active">
+    <div class="card" style="margin-bottom:14px">
+      <div class="filters">
+        <label>Mês de referência:
+          <select id="sel-inicio" onchange="renderInicio()"></select>
+        </label>
+      </div>
+    </div>
+    <!-- KPIs principais -->
+    <div class="kpi-grid" id="kpi-inicio"></div>
+    <!-- Gráfico receita vs despesa + fundos -->
+    <div class="row2">
+      <div class="card">
+        <h2>Receitas vs Despesas — últimos meses</h2>
+        <div class="chart-wrap" style="height:260px"><canvas id="ch-inicio-bar"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Saldos dos Fundos — mês selecionado</h2>
+        <div id="kpi-fundos-inicio" class="kpi-grid" style="margin-bottom:0"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DESPESAS -->
+  <div id="sec-despesas" class="section">
+    <div class="card">
+      <div class="filters">
+        <label>Ano: <select id="sel-ano" onchange="filterMesByAno()"></select></label>
+        <label>Mês/Ano: <select id="sel-mes" onchange="renderDespesas()"></select></label>
+      </div>
+    </div>
+    <div id="kpi-desp" class="kpi-grid"></div>
+    <div class="row2">
+      <div class="card">
+        <h2>Despesas por Categoria</h2>
+        <div class="chart-wrap"><canvas id="ch-desp-bar"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Evolução Total de Despesas</h2>
+        <div class="chart-wrap"><canvas id="ch-desp-trend"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Detalhamento por Categoria — Mês Selecionado</h2>
+      <table><thead><tr><th>Categoria</th><th class="num">Valor (R$)</th><th class="num">%</th></tr></thead>
+      <tbody id="tb-desp"></tbody></table>
+    </div>
+  </div>
+
+  <!-- TAB: CONTA ORDINÁRIA -->
+  <div id="sec-ordinaria" class="section">
+    <div id="kpi-ord" class="kpi-grid"></div>
+    <div class="row2">
+      <div class="card">
+        <h2>Receitas vs Despesas — Conta Ordinária</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-ord-recdesp"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Variação do Saldo — Conta Ordinária</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-ord-saldo"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Detalhamento Mensal</h2>
+      <table><thead><tr><th>Mês</th><th class="num">Saldo Anterior</th><th class="num">Créditos (Receitas)</th><th class="num">Débitos (Despesas)</th><th class="num">Saldo Atual</th><th class="num">Variação</th></tr></thead>
+      <tbody id="tb-ord"></tbody></table>
+    </div>
+  </div>
+
+  <!-- TAB: INADIMPLENTES -->
+  <div id="sec-inad" class="section">
+    <div class="card">
+      <h2>Total de Inadimplência por Mês</h2>
+      <div class="chart-wrap" style="height:220px"><canvas id="ch-inad-bar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="filters">
+        <label>Mês: <select id="sel-inad" onchange="renderInad()"></select></label>
+      </div>
+      <table><thead><tr><th>Bloco</th><th>Unidade</th><th class="num">Parcelas</th><th class="num">Total Devido</th></tr></thead>
+      <tbody id="tb-inad"></tbody></table>
+      <div id="inad-empty" style="text-align:center;padding:20px;color:#888;display:none">Nenhum inadimplente neste mês 🎉</div>
+    </div>
+  </div>
+
+  <!-- TAB: FUNDOS -->
+  <div id="sec-fundos" class="section">
+    <div id="kpi-fundos" class="kpi-grid"></div>
+    <div class="card">
+      <h2>Evolução dos Saldos por Fundo</h2>
+      <div class="chart-wrap" style="height:360px"><canvas id="ch-fundos"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Saldos Atuais por Fundo e Mês</h2>
+      <div id="tb-fundos-wrap"></div>
+    </div>
+  </div>
+
+  <!-- TAB: CONSUMOS & CONTAS -->
+  <div id="sec-consumos" class="section">
+    <div class="card" style="margin-bottom:14px">
+      <div class="filters">
+        <label>Ano: <select id="sel-consumo-ano" onchange="renderConsumos()"></select></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>⚡ Energia Elétrica — Evolução Mensal</h2>
+      <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-energia"></canvas></div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <h2>💧 Água — Evolução Mensal</h2>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-agua"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>🔥 Gás — Evolução Mensal</h2>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-gas"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Situação Global das Contas — <span id="contas-mes-label" style="color:#2E75B6"></span></h2>
+      <table><thead><tr>
+        <th>Conta / Fundo</th>
+        <th class="num">Saldo Anterior</th>
+        <th class="num">Créditos</th>
+        <th class="num">Débitos</th>
+        <th class="num">Saldo Atual</th>
+      </tr></thead>
+      <tbody id="tb-contas-global"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const D = {"despesas": {"01/2022": {"Administrativas": 7634.56, "Consumos": 31047.57, "Manutencao": 5643.38, "Pessoal": 43650.23}, "01/2023": {"Administrativas": 7697.68, "Consumos": 41073.62, "Manutencao": 9181.54, "Pessoal": 47736.23}, "01/2024": {"Administrativas": 7748.47, "Consumos": 21863.33, "Manutencao": 6345.9, "Pessoal": 48086.73}, "01/2025": {"Administrativas": 8683.76, "Consumos": 37401.26, "Manutencao": 13985.05, "Pessoal": 54821.94}, "01/2026": {"Administrativas": 7549.35, "Consumos": 32824.82, "Manutencao": 11180.64, "Pessoal": 56141.2}, "02/2022": {"Administrativas": 12351.65, "Consumos": 28358.16, "Manutencao": 13008.32, "Pessoal": 47569.18}, "02/2023": {"Administrativas": 6846.76, "Consumos": 34531.4, "Manutencao": 12820.17, "Pessoal": 47834.67}, "02/2024": {"Administrativas": 8010.48, "Consumos": 33710.36, "Manutencao": 7559.08, "Pessoal": 48171.75}, "02/2025": {"Administrativas": 6920.6, "Consumos": 32940.66, "Manutencao": 14468.07, "Pessoal": 58003.35}, "02/2026": {"Administrativas": 10847.25, "Consumos": 19403.29, "Manutencao": 9007.58, "Pessoal": 55716.1}, "03/2021": {"Administrativas": 7683.36, "Consumos": 29765.71, "Manutencao": 2817.27, "Pessoal": 41819.99}, "03/2022": {"Administrativas": 8236.0, "Consumos": 28870.45, "Manutencao": 11400.18, "Pessoal": 45695.79}, "03/2023": {"Administrativas": 8048.16, "Consumos": 35692.11, "Manutencao": 11481.24, "Pessoal": 43126.44}, "03/2024": {"Administrativas": 8197.98, "Consumos": 29407.51, "Manutencao": 7502.18, "Pessoal": 51086.91}, "03/2025": {"Administrativas": 11488.99, "Consumos": 32359.55, "Manutencao": 12789.55, "Pessoal": 54187.47}, "03/2026": {"Administrativas": 9583.51, "Consumos": 44897.99, "Manutencao": 8946.34, "Pessoal": 62183.34}, "04/2021": {"Administrativas": 4853.83, "Consumos": 21539.95, "Manutencao": 14633.01, "Pessoal": 39823.21}, "04/2022": {"Administrativas": 10553.15, "Consumos": 14269.6, "Manutencao": 12212.47, "Pessoal": 48106.31}, "04/2023": {"Administrativas": 8284.89, "Consumos": 14957.83, "Manutencao": 12440.17, "Pessoal": 43589.74}, "04/2024": {"Administrativas": 8518.7, "Consumos": 31770.61, "Manutencao": 11124.55, "Pessoal": 44114.51}, "04/2025": {"Administrativas": 8703.49, "Consumos": 34951.08, "Manutencao": 11398.78, "Pessoal": 52812.78}, "04/2026": {"Administrativas": 12158.49, "Consumos": 51440.63, "Manutencao": 11133.62, "Pessoal": 56773.85}, "05/2021": {"Administrativas": 5149.31, "Consumos": 27697.66, "Manutencao": 15802.49, "Pessoal": 45985.79}, "05/2022": {"Administrativas": 6373.77, "Consumos": 52564.16, "Manutencao": 12885.7, "Pessoal": 49180.1}, "05/2023": {"Administrativas": 7104.67, "Consumos": 64675.5, "Manutencao": 16974.97, "Pessoal": 45597.13}, "05/2024": {"Administrativas": 11072.08, "Consumos": 35347.05, "Manutencao": 9969.84, "Pessoal": 47692.99}, "05/2025": {"Administrativas": 9607.85, "Consumos": 41582.99, "Manutencao": 8367.8, "Pessoal": 52710.76}, "06/2021": {"Administrativas": 5167.62, "Consumos": 11865.1, "Manutencao": 9097.44, "Pessoal": 40051.77}, "06/2022": {"Administrativas": 6438.2, "Consumos": 35525.44, "Manutencao": 7297.2, "Pessoal": 45500.14}, "06/2023": {"Administrativas": 6591.0, "Consumos": 45367.3, "Manutencao": 14997.33, "Pessoal": 41480.11}, "06/2024": {"Administrativas": 6926.09, "Consumos": 15679.61, "Manutencao": 18587.75, "Pessoal": 46659.73}, "06/2025": {"Administrativas": 7624.45, "Consumos": 42372.59, "Manutencao": 9085.48, "Pessoal": 55091.84}, "07/2021": {"Administrativas": 5017.58, "Consumos": 47914.28, "Manutencao": 8624.57, "Pessoal": 45039.62}, "07/2022": {"Administrativas": 6953.04, "Consumos": 43875.24, "Manutencao": 7649.38, "Pessoal": 45564.77}, "07/2023": {"Administrativas": 6353.44, "Consumos": 42740.7, "Manutencao": 11756.31, "Pessoal": 44028.72}, "07/2024": {"Administrativas": 7668.57, "Consumos": 65325.85, "Manutencao": 9934.06, "Pessoal": 48817.58}, "07/2025": {"Administrativas": 7701.61, "Consumos": 51418.38, "Manutencao": 9560.11, "Pessoal": 52767.04}, "08/2021": {"Administrativas": 6172.1, "Consumos": 33713.36, "Manutencao": 11223.57, "Pessoal": 39172.92}, "08/2022": {"Administrativas": 6200.04, "Consumos": 45355.0, "Manutencao": 9074.64, "Pessoal": 50180.05}, "08/2023": {"Administrativas": 6235.11, "Consumos": 42815.02, "Manutencao": 9477.97, "Pessoal": 43751.59}, "08/2024": {"Administrativas": 7422.45, "Consumos": 45366.67, "Manutencao": 10583.94, "Pessoal": 55087.9}, "08/2025": {"Administrativas": 9285.6, "Consumos": 56581.74, "Manutencao": 11876.48, "Pessoal": 53791.64}, "09/2021": {"Administrativas": 6326.67, "Consumos": 29275.38, "Manutencao": 7561.05, "Pessoal": 40615.38}, "09/2022": {"Administrativas": 6056.55, "Consumos": 47968.1, "Manutencao": 10348.49, "Pessoal": 125396.65}, "09/2023": {"Administrativas": 6259.81, "Consumos": 17279.83, "Manutencao": 5981.23, "Pessoal": 44887.58}, "09/2024": {"Administrativas": 7944.19, "Consumos": 39372.31, "Manutencao": 7590.52, "Pessoal": 49359.71}, "09/2025": {"Administrativas": 7508.72, "Consumos": 51913.82, "Manutencao": 10663.21, "Pessoal": 67014.37}, "10/2021": {"Administrativas": 6191.46, "Consumos": 14127.69, "Manutencao": 6324.87, "Pessoal": 40944.43}, "10/2022": {"Administrativas": 6970.26, "Consumos": 45977.97, "Manutencao": 10422.73, "Pessoal": 46327.03}, "10/2023": {"Administrativas": 6981.32, "Consumos": 61055.72, "Manutencao": 9893.16, "Pessoal": 48006.85}, "10/2024": {"Administrativas": 10055.07, "Consumos": 40978.34, "Manutencao": 10400.79, "Pessoal": 48863.74}, "10/2025": {"Administrativas": 8145.44, "Consumos": 20922.77, "Manutencao": 9298.36, "Pessoal": 54793.36}, "11/2021": {"Administrativas": 8296.55, "Consumos": 47939.11, "Manutencao": 8365.76, "Pessoal": 50192.22}, "11/2022": {"Administrativas": 6250.87, "Consumos": 38513.67, "Manutencao": 11605.91, "Pessoal": 41653.98}, "11/2023": {"Administrativas": 6158.21, "Consumos": 36935.48, "Manutencao": 7747.55, "Pessoal": 49998.22}, "11/2024": {"Administrativas": 8487.76, "Consumos": 17980.74, "Manutencao": 11671.15, "Pessoal": 46617.6}, "11/2025": {"Administrativas": 7723.69, "Consumos": 46086.74, "Manutencao": 7502.34, "Pessoal": 54677.03}, "12/2021": {"Administrativas": 9618.76, "Consumos": 28400.2, "Manutencao": 86065.51, "Pessoal": 46884.45}, "12/2022": {"Administrativas": 10191.59, "Consumos": 36820.19, "Manutencao": 12987.69, "Pessoal": 44402.41}, "12/2023": {"Administrativas": 11719.22, "Consumos": 44750.64, "Manutencao": 6189.24, "Pessoal": 49370.7}, "12/2024": {"Administrativas": 13076.68, "Consumos": 61206.86, "Manutencao": 14179.08, "Pessoal": 51203.38}, "12/2025": {"Administrativas": 12677.21, "Consumos": 64569.32, "Manutencao": 10848.4, "Pessoal": 56325.88}}, "fundos": {"01/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 299870.95, "creditos": 9834.28, "debitos": 0.0, "saldo_atual": 309705.23}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 46723.69, "creditos": 7516.41, "debitos": 3353.67, "saldo_atual": 50886.43}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 88913.5, "creditos": 10471.08, "debitos": 2753.22, "saldo_atual": 96631.36}, {"conta": "GARAGEM", "saldo_anterior": 223629.97, "creditos": 2910.61, "debitos": 22484.0, "saldo_atual": 204056.58}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "02/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 309705.23, "creditos": 8975.85, "debitos": 0.0, "saldo_atual": 318681.08}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 50886.43, "creditos": 7457.15, "debitos": 6005.86, "saldo_atual": 52337.72}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 96631.36, "creditos": 10307.88, "debitos": 1172.29, "saldo_atual": 105766.95}, {"conta": "GARAGEM", "saldo_anterior": 204056.58, "creditos": 3457.39, "debitos": 42000.0, "saldo_atual": 165513.97}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "03/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 318681.08, "creditos": 10356.84, "debitos": 0.0, "saldo_atual": 329037.92}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 52337.72, "creditos": 7838.36, "debitos": 108.64, "saldo_atual": 60067.44}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 105766.95, "creditos": 10842.51, "debitos": 4726.1, "saldo_atual": 111883.36}, {"conta": "GARAGEM", "saldo_anterior": 165513.97, "creditos": 3457.39, "debitos": 12600.0, "saldo_atual": 156371.36}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "04/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 329037.92, "creditos": 9240.94, "debitos": 0.0, "saldo_atual": 338278.86}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 60067.44, "creditos": 6766.57, "debitos": 108.64, "saldo_atual": 66725.37}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 111883.36, "creditos": 9266.17, "debitos": 0.0, "saldo_atual": 121149.53}, {"conta": "GARAGEM", "saldo_anterior": 156371.36, "creditos": 3457.39, "debitos": 13128.3, "saldo_atual": 146700.45}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": 0.0, "creditos": 0.0, "debitos": 446.87, "saldo_atual": -446.87}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}]}, "ordinaria": {"01/2026": {"saldo_anterior": -32012.26, "creditos": 126312.95, "debitos": 107696.01, "saldo_atual": -13395.32}, "02/2026": {"saldo_anterior": -13395.32, "creditos": 114903.05, "debitos": 94974.22, "saldo_atual": 6533.51}, "03/2026": {"saldo_anterior": 6533.51, "creditos": 118183.33, "debitos": 125611.18, "saldo_atual": -894.34}, "04/2026": {"saldo_anterior": -894.34, "creditos": 105386.74, "debitos": 131506.59, "saldo_atual": -27014.19}}, "inadimplentes": {"01/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 56, "total": 84048.37}, {"bloco": "A", "unidade": "000041", "parcelas": 15, "total": 14822.87}, {"bloco": "J", "unidade": "000081", "parcelas": 6, "total": 9793.23}, {"bloco": "", "unidade": "000022", "parcelas": 4, "total": 8618.82}, {"bloco": "A", "unidade": "000045", "parcelas": 7, "total": 4716.27}, {"bloco": "", "unidade": "000104", "parcelas": 1, "total": 1704.68}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 674.36}], "02/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 57, "total": 85878.59}, {"bloco": "A", "unidade": "000041", "parcelas": 13, "total": 13335.76}, {"bloco": "", "unidade": "000022", "parcelas": 5, "total": 10658.23}, {"bloco": "J", "unidade": "000081", "parcelas": 5, "total": 8159.7}, {"bloco": "A", "unidade": "000045", "parcelas": 6, "total": 4965.26}, {"bloco": "", "unidade": "000104", "parcelas": 1, "total": 1704.68}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 639.02}], "03/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 58, "total": 87635.94}, {"bloco": "A", "unidade": "000041", "parcelas": 9, "total": 10250.66}, {"bloco": "J", "unidade": "000081", "parcelas": 6, "total": 9640.98}, {"bloco": "", "unidade": "000045", "parcelas": 7, "total": 5152.49}], "04/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 59, "total": 89485.56}, {"bloco": "J", "unidade": "000081", "parcelas": 7, "total": 11206.66}, {"bloco": "A", "unidade": "000041", "parcelas": 8, "total": 10202.23}, {"bloco": "A", "unidade": "000045", "parcelas": 5, "total": 4307.02}, {"bloco": "", "unidade": "000074", "parcelas": 1, "total": 1860.11}, {"bloco": "", "unidade": "000013", "parcelas": 1, "total": 1711.55}, {"bloco": "", "unidade": "000034", "parcelas": 1, "total": 1565.68}, {"bloco": "", "unidade": "000016", "parcelas": 1, "total": 646.36}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 646.36}]}, "consumos": {"01/2022": {"Energia Elétrica": 2129.61, "Gás": 18448.32, "Água": 10008.26}, "01/2023": {"Energia Elétrica": 4298.51, "Gás": 25207.64, "Água": 11135.7}, "01/2024": {"Energia Elétrica": 3456.0, "Gás": 18214.44}, "01/2025": {"Energia Elétrica": 3833.65, "Gás": 20010.27, "Água": 12793.12}, "01/2026": {"Energia Elétrica": 4271.02, "Gás": 15677.62, "Água": 12208.23}, "02/2022": {"Energia Elétrica": 4053.6, "Gás": 15845.67, "Água": 7997.51}, "02/2023": {"Energia Elétrica": 3848.07, "Gás": 21353.41, "Água": 8894.85}, "02/2024": {"Energia Elétrica": 3771.44, "Gás": 18665.72, "Água": 10818.37}, "02/2025": {"Energia Elétrica": 3885.84, "Gás": 16757.98, "Água": 11775.26}, "02/2026": {"Energia Elétrica": 4060.25, "Gás": 253.58, "Água": 14421.51}, "03/2021": {"Energia Elétrica": 3782.44, "Gás": 19904.49, "Água": 5621.53}, "03/2022": {"Energia Elétrica": 4280.55, "Gás": 14470.19, "Água": 9658.33}, "03/2023": {"Energia Elétrica": 3699.37, "Gás": 21418.45, "Água": 10142.52}, "03/2024": {"Energia Elétrica": 3356.74, "Gás": 14433.1, "Água": 11168.55}, "03/2025": {"Energia Elétrica": 4077.65, "Gás": 13764.02, "Água": 13996.1}, "03/2026": {"Energia Elétrica": 4257.73, "Gás": 39972.31}, "04/2021": {"Energia Elétrica": 3145.64, "Gás": 11320.73, "Água": 6657.18}, "04/2022": {"Energia Elétrica": 4343.65, "Gás": 122.87, "Água": 9360.34}, "04/2023": {"Energia Elétrica": 4226.6, "Gás": 121.11, "Água": 10173.45}, "04/2024": {"Energia Elétrica": 3826.67, "Gás": 17100.0, "Água": 10389.11}, "04/2025": {"Energia Elétrica": 3313.82, "Gás": 18278.69, "Água": 12751.84}, "04/2026": {"Energia Elétrica": 4168.16, "Gás": 20254.73, "Água": 26550.99}, "05/2021": {"Energia Elétrica": 3037.02, "Gás": 15771.78, "Água": 8472.46}, "05/2022": {"Energia Elétrica": 3846.65, "Gás": 38165.65, "Água": 10105.48}, "05/2023": {"Energia Elétrica": 3638.31, "Gás": 49732.05, "Água": 10864.31}, "05/2024": {"Energia Elétrica": 3733.62, "Gás": 19737.18, "Água": 11417.06}, "05/2025": {"Energia Elétrica": 3891.68, "Gás": 23900.14, "Água": 13259.2}, "06/2021": {"Energia Elétrica": 3012.78, "Gás": 138.8, "Água": 8297.12}, "06/2022": {"Energia Elétrica": 3583.56, "Gás": 22421.87, "Água": 9073.63}, "06/2023": {"Energia Elétrica": 4063.42, "Gás": 30169.46, "Água": 10688.58}, "06/2024": {"Energia Elétrica": 3779.3, "Gás": 227.59, "Água": 11200.93}, "06/2025": {"Energia Elétrica": 3954.69, "Gás": 25474.1, "Água": 12304.88}, "07/2021": {"Energia Elétrica": 3296.49, "Gás": 34698.19, "Água": 9503.2}, "07/2022": {"Energia Elétrica": 3248.44, "Gás": 28137.32, "Água": 12043.1}, "07/2023": {"Energia Elétrica": 3876.06, "Gás": 26851.25, "Água": 11567.55}, "07/2024": {"Energia Elétrica": 3370.89, "Gás": 49758.95, "Água": 11714.42}, "07/2025": {"Energia Elétrica": 3987.76, "Gás": 32855.82, "Água": 13911.53}, "08/2021": {"Energia Elétrica": 3705.86, "Gás": 19868.89, "Água": 9722.21}, "08/2022": {"Energia Elétrica": 3962.23, "Gás": 31033.74, "Água": 9915.68}, "08/2023": {"Energia Elétrica": 3888.57, "Gás": 23811.51, "Água": 14669.1}, "08/2024": {"Energia Elétrica": 3849.95, "Gás": 28656.31, "Água": 12378.82}, "08/2025": {"Energia Elétrica": 4621.39, "Gás": 36431.22, "Água": 14865.86}, "09/2021": {"Energia Elétrica": 3946.71, "Gás": 15454.69, "Água": 9457.58}, "09/2022": {"Energia Elétrica": 3989.68, "Gás": 32751.37, "Água": 10781.82}, "09/2023": {"Energia Elétrica": 4064.73, "Gás": 157.11, "Água": 12603.16}, "09/2024": {"Energia Elétrica": 3877.25, "Gás": 22218.92, "Água": 12794.55}, "09/2025": {"Energia Elétrica": 4951.94, "Gás": 27656.0, "Água": 18642.61}, "10/2021": {"Energia Elétrica": 3737.93, "Gás": 126.66, "Água": 9831.72}, "10/2022": {"Energia Elétrica": 4170.54, "Gás": 30293.19, "Água": 11238.81}, "10/2023": {"Energia Elétrica": 4242.63, "Gás": 43551.76, "Água": 12806.5}, "10/2024": {"Energia Elétrica": 4016.48, "Gás": 22774.1, "Água": 13706.17}, "10/2025": {"Energia Elétrica": 4614.26, "Gás": 148.44, "Água": 15494.02}, "11/2021": {"Energia Elétrica": 3998.93, "Gás": 34039.48, "Água": 9439.32}, "11/2022": {"Energia Elétrica": 3808.2, "Gás": 23707.11, "Água": 10998.36}, "11/2023": {"Energia Elétrica": 3942.85, "Gás": 20522.04, "Água": 12015.76}, "11/2024": {"Energia Elétrica": 4161.06, "Gás": 296.32, "Água": 13041.77}, "11/2025": {"Energia Elétrica": 4598.2, "Gás": 26522.5, "Água": 14298.09}, "12/2021": {"Energia Elétrica": 4367.72, "Gás": 14487.67, "Água": 9083.43}, "12/2022": {"Energia Elétrica": 3634.01, "Gás": 22388.24, "Água": 10462.17}, "12/2023": {"Energia Elétrica": 4886.48, "Gás": 13986.25, "Água": 25423.08}, "12/2024": {"Energia Elétrica": 3910.24, "Gás": 43948.63, "Água": 12802.08}, "12/2025": {"Energia Elétrica": 4437.6, "Gás": 48378.91, "Água": 11084.89}}, "meses": ["03/2021", "04/2021", "05/2021", "06/2021", "07/2021", "08/2021", "09/2021", "10/2021", "11/2021", "12/2021", "01/2022", "02/2022", "03/2022", "04/2022", "05/2022", "06/2022", "07/2022", "08/2022", "09/2022", "10/2022", "11/2022", "12/2022", "01/2023", "02/2023", "03/2023", "04/2023", "05/2023", "06/2023", "07/2023", "08/2023", "09/2023", "10/2023", "11/2023", "12/2023", "01/2024", "02/2024", "03/2024", "04/2024", "05/2024", "06/2024", "07/2024", "08/2024", "09/2024", "10/2024", "11/2024", "12/2024", "01/2025", "02/2025", "03/2025", "04/2025", "05/2025", "06/2025", "07/2025", "08/2025", "09/2025", "10/2025", "11/2025", "12/2025", "01/2026", "02/2026", "03/2026", "04/2026"], "meses_labels": {"03/2021": "Março/2021", "04/2021": "Abril/2021", "05/2021": "Maio/2021", "06/2021": "Junho/2021", "07/2021": "Julho/2021", "08/2021": "Agosto/2021", "09/2021": "Setembro/2021", "10/2021": "Outubro/2021", "11/2021": "Novembro/2021", "12/2021": "Dezembro/2021", "01/2022": "Janeiro/2022", "02/2022": "Fevereiro/2022", "03/2022": "Março/2022", "04/2022": "Abril/2022", "05/2022": "Maio/2022", "06/2022": "Junho/2022", "07/2022": "Julho/2022", "08/2022": "Agosto/2022", "09/2022": "Setembro/2022", "10/2022": "Outubro/2022", "11/2022": "Novembro/2022", "12/2022": "Dezembro/2022", "01/2023": "Janeiro/2023", "02/2023": "Fevereiro/2023", "03/2023": "Março/2023", "04/2023": "Abril/2023", "05/2023": "Maio/2023", "06/2023": "Junho/2023", "07/2023": "Julho/2023", "08/2023": "Agosto/2023", "09/2023": "Setembro/2023", "10/2023": "Outubro/2023", "11/2023": "Novembro/2023", "12/2023": "Dezembro/2023", "01/2024": "Janeiro/2024", "02/2024": "Fevereiro/2024", "03/2024": "Março/2024", "04/2024": "Abril/2024", "05/2024": "Maio/2024", "06/2024": "Junho/2024", "07/2024": "Julho/2024", "08/2024": "Agosto/2024", "09/2024": "Setembro/2024", "10/2024": "Outubro/2024", "11/2024": "Novembro/2024", "12/2024": "Dezembro/2024", "01/2025": "Janeiro/2025", "02/2025": "Fevereiro/2025", "03/2025": "Março/2025", "04/2025": "Abril/2025", "05/2025": "Maio/2025", "06/2025": "Junho/2025", "07/2025": "Julho/2025", "08/2025": "Agosto/2025", "09/2025": "Setembro/2025", "10/2025": "Outubro/2025", "11/2025": "Novembro/2025", "12/2025": "Dezembro/2025", "01/2026": "Janeiro/2026", "02/2026": "Fevereiro/2026", "03/2026": "Março/2026", "04/2026": "Abril/2026"}, "atualizado": "03/07/2026 11:00"};
+
+document.getElementById('upd-ts').textContent = D.atualizado;
+
+const BRL = v => v == null ? '—' : new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+const fmt2 = v => v == null ? '—' : new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+const sign = v => v >= 0 ? 'pos' : 'neg';
+
+function showTab(id, el) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  if(el && el !== 'this') el.classList.add('active');
+  else if(event && event.currentTarget) event.currentTarget.classList.add('active');
+}
+
+const COLORS = ['#1F4E79','#2E75B6','#70AD47','#ED7D31','#A9D18E','#FFC000','#5B9BD5','#FF0000','#843C0C'];
+const FUNDO_COLORS = {'FUNDO DE RESERVA':'#1F4E79','OBRAS/MELHORIAS':'#70AD47',
+  'FÉRIAS / 13º SALÁRIO':'#ED7D31','FUNDO DE MANUTENÇÃO':'#2E75B6','GARAGEM':'#FFC000',
+  'SALA GINÁSTICA/ACADEMIA':'#A9D18E','TRANSFERÊNCIA ENTRE CONTAS':'#999'};
+
+let charts = {};
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── INÍCIO (HOME) ─────────────────────────────────────────────────────────────
+function initInicio() {
+  const sel = document.getElementById('sel-inicio');
+  const meses = D.meses.filter(m => D.ordinaria[m]);
+  meses.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = D.meses_labels[m] || m;
+    sel.appendChild(o);
+  });
+  if(meses.length > 0) sel.value = meses[meses.length - 1];
+  renderInicio();
+}
+
+function renderInicio() {
+  const mes = document.getElementById('sel-inicio').value;
+  const ord = D.ordinaria[mes] || {};
+  const receitas  = ord.creditos  || 0;
+  const despesas  = ord.debitos   || 0;
+  const saldo     = ord.saldo_atual != null ? ord.saldo_atual : null;
+  const despCats  = D.despesas[mes] || {};
+  const despTotal = Object.values(despCats).reduce((s,v)=>s+v, 0);
+  const inad      = (D.inadimplentes[mes] || []).reduce((s,u)=>s+u.total, 0);
+  const inadN     = (D.inadimplentes[mes] || []).length;
+
+  // KPI principal: Receitas (destaque máximo)
+  const saldoClass = saldo != null ? sign(saldo) : '';
+  document.getElementById('kpi-inicio').innerHTML = `
+    <div class="kpi kpi-receita">
+      <div class="kpi-lbl">💚 Total de Receitas</div>
+      <div class="kpi-val pos">${BRL(receitas)}</div>
+      <div class="kpi-sub">Créditos — Conta Ordinária</div>
+    </div>
+    <div class="kpi kpi-desp">
+      <div class="kpi-lbl">🔴 Total de Despesas</div>
+      <div class="kpi-val neg">${BRL(despesas)}</div>
+      <div class="kpi-sub">Débitos — Conta Ordinária</div>
+    </div>
+    <div class="kpi kpi-saldo">
+      <div class="kpi-lbl">⚖️ Saldo Ordinária</div>
+      <div class="kpi-val ${saldoClass}">${saldo != null ? BRL(saldo) : '—'}</div>
+      <div class="kpi-sub">Após créditos e débitos</div>
+    </div>
+    <div class="kpi kpi-inad">
+      <div class="kpi-lbl">⚠️ Inadimplência</div>
+      <div class="kpi-val ${inad > 0 ? 'neg' : 'pos'}">${BRL(inad)}</div>
+      <div class="kpi-sub">${inadN} unidade${inadN !== 1 ? 's' : ''} em atraso</div>
+    </div>
+  `;
+
+  // Gráfico receita vs despesa (últimos 6 meses ou todos disponíveis)
+  const allMes = D.meses.filter(m => D.ordinaria[m]);
+  const vizMes = allMes.slice(-8);
+  const labels  = vizMes.map(m => D.meses_labels[m] || m);
+  const recArr  = vizMes.map(m => D.ordinaria[m]?.creditos || 0);
+  const despArr = vizMes.map(m => D.ordinaria[m]?.debitos  || 0);
+  destroyChart('ch-inicio-bar');
+  charts['ch-inicio-bar'] = new Chart(document.getElementById('ch-inicio-bar'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Receitas',  data: recArr,  backgroundColor: 'rgba(39,174,96,.75)',  borderRadius: 4 },
+      { label: 'Despesas', data: despArr, backgroundColor: 'rgba(192,57,43,.75)', borderRadius: 4 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' '+BRL(ctx.raw) } } },
+      scales: { y: { ticks: { callback: v=>'R$'+fmt2(v) }, grid: {color:'#eee'} } }
+    }
+  });
+
+  // Fundos do mês selecionado
+  const fundos = D.fundos[mes] || [];
+  const kpiFundos = document.getElementById('kpi-fundos-inicio');
+  if(fundos.length === 0) {
+    kpiFundos.innerHTML = '<p style="color:#999;font-size:.88em">Sem dados de fundos para este mês.</p>';
+  } else {
+    kpiFundos.innerHTML = fundos
+      .filter(f => f.conta !== 'TOTAL')
+      .map(f => `
+        <div class="kpi" style="border-left-color:${FUNDO_COLORS[f.conta]||'#2E75B6'}">
+          <div class="kpi-lbl">${f.conta}</div>
+          <div class="kpi-val" style="font-size:1.1em;color:#1F4E79">${BRL(f.saldo_atual)}</div>
+        </div>
+      `).join('');
+  }
+}
+
+// ── DESPESAS ──────────────────────────────────────────────────────────────────
+function initDespesas() {
+  const selAno = document.getElementById('sel-ano');
+  const anos = [...new Set(D.meses.filter(m => D.despesas[m]).map(m => m.split('/')[1]))].sort((a,b)=>b-a);
+  const toAno = document.createElement('option');
+  toAno.value = 'todos'; toAno.textContent = 'Todos';
+  selAno.appendChild(toAno);
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value = a; o.textContent = a; selAno.appendChild(o);
+  });
+  selAno.value = anos[0];
+  filterMesByAno();
+}
+
+function filterMesByAno() {
+  const ano = document.getElementById('sel-ano').value;
+  const sel = document.getElementById('sel-mes');
+  const prevVal = sel.value;
+  sel.innerHTML = '';
+  const tOpt = document.createElement('option');
+  tOpt.value = '__todos__'; tOpt.textContent = 'Todos os meses'; sel.appendChild(tOpt);
+  const meses = D.meses.filter(m => D.despesas[m] && (ano === 'todos' || m.endsWith('/'+ano)));
+  meses.forEach(m => {
+    const o = document.createElement('option'); o.value=m; o.textContent=D.meses_labels[m]||m; sel.appendChild(o);
+  });
+  if(meses.includes(prevVal)) sel.value = prevVal;
+  else sel.selectedIndex = sel.options.length - 1;
+  renderDespesas();
+  renderDespesasTrend();
+}
+
+function renderDespesas() {
+  const mes = document.getElementById('sel-mes').value;
+  const ano = document.getElementById('sel-ano').value;
+  let data = {};
+  if(mes === '__todos__') {
+    const meses = D.meses.filter(m => D.despesas[m] && (ano === 'todos' || m.endsWith('/'+ano)));
+    meses.forEach(m => { Object.entries(D.despesas[m]||{}).forEach(([c,v]) => { data[c] = (data[c]||0)+v; }); });
+  } else {
+    data = D.despesas[mes] || {};
+  }
+  const cats = Object.keys(data).sort((a,b)=>data[b]-data[a]);
+  const vals = cats.map(c=>data[c]);
+  const total = vals.reduce((s,v)=>s+v,0);
+  const mesesLabel = mes==='__todos__'?(ano==='todos'?'Todos os anos':ano):(D.meses_labels[mes]||mes);
+
+  // Receitas: créditos ORDINÁRIA do período selecionado
+  let totalReceitas = null;
+  if(mes === '__todos__') {
+    const mRec = D.meses.filter(m => D.ordinaria[m] && (ano==='todos'||m.endsWith('/'+ano)));
+    if(mRec.length > 0) totalReceitas = mRec.reduce((s,m) => s+(D.ordinaria[m]?.creditos||0), 0);
+  } else {
+    if(D.ordinaria[mes]) totalReceitas = D.ordinaria[mes].creditos;
+  }
+  const recClass = totalReceitas != null ? (totalReceitas >= total ? 'pos' : 'neg') : '';
+  document.getElementById('kpi-desp').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">Total Despesas</div><div class="kpi-val">${BRL(total)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Período</div><div class="kpi-val" style="font-size:1.1em">${mesesLabel}</div></div>
+    <div class="kpi kpi-receita"><div class="kpi-lbl">Total de Receitas</div><div class="kpi-val ${recClass}">${totalReceitas!=null?BRL(totalReceitas):'—'}</div></div>
+  `;
+
+  destroyChart('ch-desp-bar');
+  charts['ch-desp-bar'] = new Chart(document.getElementById('ch-desp-bar'),{
+    type:'bar',
+    data:{ labels:cats, datasets:[{ label:'R$', data:vals, backgroundColor:cats.map((_,i)=>COLORS[i%COLORS.length]), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}}, x:{ticks:{maxRotation:35,font:{size:11}}} }
+    }
+  });
+
+  const tb = document.getElementById('tb-desp');
+  tb.innerHTML = cats.map((c,i) =>
+    `<tr><td>${c}</td><td class="num">${BRL(vals[i])}</td><td class="num">${(vals[i]/total*100).toFixed(1)}%</td></tr>`
+  ).join('') + `<tr class="total-row"><td>TOTAL</td><td class="num">${BRL(total)}</td><td class="num">100%</td></tr>`;
+}
+
+function renderDespesasTrend() {
+  const ano = document.getElementById('sel-ano').value;
+  const meses = D.meses.filter(m => D.despesas[m] && (ano==='todos'||m.endsWith('/'+ano)));
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const totals = meses.map(m => Object.values(D.despesas[m]||{}).reduce((s,v)=>s+v,0));
+  destroyChart('ch-desp-trend');
+  charts['ch-desp-trend'] = new Chart(document.getElementById('ch-desp-trend'),{
+    type:'line',
+    data:{ labels, datasets:[{ label:'Total Despesas', data:totals,
+      borderColor:'#1F4E79', backgroundColor:'rgba(31,78,121,.1)', fill:true, tension:.3, pointRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}} }
+    }
+  });
+}
+
+// ── CONTA ORDINÁRIA ───────────────────────────────────────────────────────────
+function renderOrdinaria() {
+  const meses = D.meses.filter(m => D.ordinaria[m]);
+  const labels   = meses.map(m => D.meses_labels[m]||m);
+  const creditos = meses.map(m => D.ordinaria[m]?.creditos||0);
+  const debitos  = meses.map(m => D.ordinaria[m]?.debitos||0);
+  const saldos   = meses.map(m => D.ordinaria[m]?.saldo_atual||0);
+  const saldosAnt= meses.map(m => D.ordinaria[m]?.saldo_anterior||0);
+  const variacoes= meses.map(m => (D.ordinaria[m]?.saldo_atual||0) - (D.ordinaria[m]?.saldo_anterior||0));
+  const last = meses[meses.length-1];
+  const lo = D.ordinaria[last]||{};
+  const varLast  = (lo.saldo_atual||0) - (lo.saldo_anterior||0);
+
+  document.getElementById('kpi-ord').innerHTML = `
+    <div class="kpi kpi-receita"><div class="kpi-lbl">Receitas (Créditos)</div><div class="kpi-val pos">${BRL(lo.creditos)}</div><div class="kpi-sub">${D.meses_labels[last]||last}</div></div>
+    <div class="kpi kpi-desp"><div class="kpi-lbl">Despesas (Débitos)</div><div class="kpi-val neg">${BRL(lo.debitos)}</div><div class="kpi-sub">${D.meses_labels[last]||last}</div></div>
+    <div class="kpi kpi-saldo"><div class="kpi-lbl">Saldo Atual</div><div class="kpi-val ${sign(lo.saldo_atual)}">${BRL(lo.saldo_atual)}</div><div class="kpi-sub">Último mês disponível</div></div>
+    <div class="kpi" style="border-left-color:${varLast>=0?'#27ae60':'#c0392b'}">
+      <div class="kpi-lbl">Variação no Mês</div>
+      <div class="kpi-val ${sign(varLast)}">${BRL(varLast)}</div>
+      <div class="kpi-sub">Saldo Atual − Saldo Anterior</div>
+    </div>
+  `;
+
+  // Gráfico 1: Receitas vs Despesas
+  destroyChart('ch-ord-recdesp');
+  charts['ch-ord-recdesp'] = new Chart(document.getElementById('ch-ord-recdesp'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Receitas (Créditos)', data: creditos, backgroundColor: 'rgba(39,174,96,.75)',  borderRadius: 4 },
+      { label: 'Despesas (Débitos)',  data: debitos,  backgroundColor: 'rgba(192,57,43,.75)', borderRadius: 4 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' ' + BRL(ctx.raw) } } },
+      scales: { y: { ticks: { callback: v => 'R$' + fmt2(v) }, grid: { color: '#eee' } } }
+    }
+  });
+
+  // Gráfico 2: Variação do Saldo (barras de resultado + linhas de saldo)
+  const varColors = variacoes.map(v => v >= 0 ? 'rgba(39,174,96,.8)' : 'rgba(192,57,43,.8)');
+  const varBorder = variacoes.map(v => v >= 0 ? 'rgba(39,174,96,1)'  : 'rgba(192,57,43,1)');
+  destroyChart('ch-ord-saldo');
+  charts['ch-ord-saldo'] = new Chart(document.getElementById('ch-ord-saldo'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { type: 'line', label: 'Saldo Anterior', data: saldosAnt,
+         borderColor: '#ED7D31', backgroundColor: 'transparent',
+         tension: .3, pointRadius: 4, borderDash: [5,3], order: 1 },
+      { type: 'line', label: 'Saldo Atual', data: saldos,
+         borderColor: '#1F4E79', backgroundColor: 'rgba(31,78,121,.08)',
+         fill: true, tension: .3, pointRadius: 5, order: 2 },
+      { type: 'bar',  label: 'Variação (Resultado)', data: variacoes,
+         backgroundColor: varColors, borderColor: varBorder,
+         borderWidth: 1, borderRadius: 4, yAxisID: 'y1', order: 3 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' ' + BRL(ctx.raw) } } },
+      scales: {
+        y:  { ticks: { callback: v => 'R$' + fmt2(v) }, grid: { color: '#eee' }, title: { display: true, text: 'Saldo (R$)' } },
+        y1: { position: 'right', ticks: { callback: v => 'R$' + fmt2(v) },
+               grid: { drawOnChartArea: false }, title: { display: true, text: 'Variação (R$)' } }
+      }
+    }
+  });
+
+  const tb = document.getElementById('tb-ord');
+  tb.innerHTML = meses.map(m => {
+    const o = D.ordinaria[m];
+    const varM = (o.saldo_atual||0) - (o.saldo_anterior||0);
+    return `<tr>
+      <td>${D.meses_labels[m]||m}</td>
+      <td class="num ${sign(o.saldo_anterior)}">${BRL(o.saldo_anterior)}</td>
+      <td class="num pos">${BRL(o.creditos)}</td>
+      <td class="num neg">${BRL(o.debitos)}</td>
+      <td class="num ${sign(o.saldo_atual)}">${BRL(o.saldo_atual)}</td>
+      <td class="num ${sign(varM)}">${BRL(varM)}</td></tr>`;
+  }).join('');
+}
+
+// ── INADIMPLENTES ─────────────────────────────────────────────────────────────
+function initInad() {
+  const meses = D.meses.filter(m => D.inadimplentes[m] !== undefined);
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const totals = meses.map(m => (D.inadimplentes[m]||[]).reduce((s,u)=>s+u.total,0));
+  destroyChart('ch-inad-bar');
+  charts['ch-inad-bar'] = new Chart(document.getElementById('ch-inad-bar'),{
+    type:'line',
+    data:{ labels, datasets:[{ label:'Total Inadimplência', data:totals,
+      borderColor:'#c0392b', backgroundColor:'rgba(192,57,43,.1)', fill:true, tension:.3, pointRadius:5, pointBackgroundColor:'#c0392b' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}} }
+    }
+  });
+  const sel = document.getElementById('sel-inad');
+  meses.forEach(m => {
+    const o = document.createElement('option'); o.value=m; o.textContent=D.meses_labels[m]||m; sel.appendChild(o);
+  });
+  if(sel.options.length>0) sel.selectedIndex = sel.options.length-1;
+  renderInad();
+}
+
+function renderInad() {
+  const mes = document.getElementById('sel-inad').value;
+  const devs = D.inadimplentes[mes]||[];
+  const tb = document.getElementById('tb-inad');
+  const empty = document.getElementById('inad-empty');
+  if(devs.length===0) { tb.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display='none';
+    const total = devs.reduce((s,u)=>s+u.total,0);
+    tb.innerHTML = devs.map(u=>
+      `<tr><td>${u.bloco||'—'}</td><td>${u.unidade}</td><td class="num">${u.parcelas}</td><td class="num neg">${BRL(u.total)}</td></tr>`
+    ).join('')+`<tr class="total-row"><td colspan="3">TOTAL</td><td class="num neg">${BRL(total)}</td></tr>`;
+  }
+}
+
+// ── FUNDOS ────────────────────────────────────────────────────────────────────
+function renderFundos() {
+  const meses = D.meses.filter(m => D.fundos[m] && D.fundos[m].length>0);
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const fundNames = [];
+  meses.forEach(m => D.fundos[m].forEach(f => { if(!fundNames.includes(f.conta)) fundNames.push(f.conta); }));
+  const last = meses[meses.length-1];
+  const lastFundos = D.fundos[last]||[];
+  document.getElementById('kpi-fundos').innerHTML = lastFundos
+    .filter(f=>f.conta!=='TOTAL')
+    .map(f=>`<div class="kpi" style="border-left-color:${FUNDO_COLORS[f.conta]||'#2E75B6'}">
+      <div class="kpi-lbl">${f.conta}</div>
+      <div class="kpi-val" style="font-size:1.1em">${BRL(f.saldo_atual)}</div>
+      <div class="kpi-sub">${D.meses_labels[last]||last}</div></div>`).join('');
+  destroyChart('ch-fundos');
+  charts['ch-fundos'] = new Chart(document.getElementById('ch-fundos'),{
+    type:'line', data:{ labels,
+      datasets: fundNames.filter(n=>n!=='TRANSFERÊNCIA ENTRE CONTAS').map((name,i)=>{
+        const data = meses.map(m=>{ const f=(D.fundos[m]||[]).find(x=>x.conta===name); return f?f.saldo_atual:null; });
+        return {label:name,data,borderColor:FUNDO_COLORS[name]||COLORS[i%COLORS.length],backgroundColor:'transparent',tension:.3,pointRadius:5,spanGaps:true};
+      })
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}}},
+      scales:{y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}}}
+    }
+  });
+  let tbl=`<table><thead><tr><th>Fundo</th>`;
+  meses.forEach(m=>tbl+=`<th class="num">${D.meses_labels[m]||m}</th>`);
+  tbl+='</tr></thead><tbody>';
+  fundNames.forEach(name=>{
+    tbl+=`<tr><td>${name}</td>`;
+    meses.forEach(m=>{
+      const f=(D.fundos[m]||[]).find(x=>x.conta===name);
+      const v=f?f.saldo_atual:null;
+      tbl+=`<td class="num ${v!=null?sign(v):''}">  ${v!=null?BRL(v):'—'}</td>`;
+    });
+    tbl+='</tr>';
+  });
+  tbl+='</tbody></table>';
+  document.getElementById('tb-fundos-wrap').innerHTML=tbl;
+}
+
+// ── CONSUMOS & CONTAS ─────────────────────────────────────────────────────────
+function initConsumos() {
+  // Popula seletor de ano com os anos disponíveis nos dados de consumo
+  const sel = document.getElementById('sel-consumo-ano');
+  const anos = [...new Set(
+    Object.keys(D.consumos).map(m => m.split('/')[1])
+  )].sort((a,b) => b-a);
+  const optTodos = document.createElement('option');
+  optTodos.value = 'todos'; optTodos.textContent = 'Todos os anos'; sel.appendChild(optTodos);
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o);
+  });
+  // Seleciona o ano mais recente por padrão
+  if(anos.length > 0) sel.value = anos[0];
+  renderConsumos();
+}
+
+function renderConsumos() {
+  const ano = document.getElementById('sel-consumo-ano').value;
+
+  // Filtra meses pelo ano selecionado, com dados de consumo
+  const mesesAll = D.meses.filter(m => D.consumos[m]);
+  const meses = mesesAll.filter(m => ano === 'todos' || m.endsWith('/'+ano));
+  const labels = meses.map(m => D.meses_labels[m]||m);
+
+  // Função auxiliar para montar um gráfico de linha de consumo
+  function makeConsumoChart(canvasId, item, borderColor, bgColor) {
+    destroyChart(canvasId);
+    const vals = meses.map(m => D.consumos[m]?.[item] ?? null);
+    charts[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: 'line',
+      data: { labels, datasets: [{
+        label: item,
+        data: vals,
+        borderColor: borderColor,
+        backgroundColor: bgColor,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: borderColor,
+        spanGaps: true
+      }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => ' ' + BRL(ctx.raw),
+            title: ctx => ctx[0].label
+          } }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: { callback: v => 'R$ ' + fmt2(v) },
+            grid: { color: '#eee' }
+          },
+          x: { ticks: { maxRotation: 35, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  makeConsumoChart('ch-consumo-energia', 'Energia Elétrica', '#ED7D31', 'rgba(237,125,49,.12)');
+  makeConsumoChart('ch-consumo-agua',    'Água',             '#2E75B6', 'rgba(46,117,182,.12)');
+  makeConsumoChart('ch-consumo-gas',     'Gás',              '#70AD47', 'rgba(112,173,71,.12)');
+
+  // ── Tabela global de contas — mês mais recente com dados de fundos ──
+  const mesFundos = D.meses.filter(m => D.fundos[m] && D.fundos[m].length > 0);
+  const lastMes = mesFundos[mesFundos.length - 1];
+  if (!lastMes) return;
+  document.getElementById('contas-mes-label').textContent = D.meses_labels[lastMes] || lastMes;
+
+  let rows = '';
+  let totalSA=0, totalCr=0, totalDb=0, totalAt=0;
+
+  // Linha ORDINÁRIA
+  const ord = D.ordinaria[lastMes] || {};
+  if (ord.saldo_atual !== undefined) {
+    totalSA += ord.saldo_anterior || 0;
+    totalCr += ord.creditos       || 0;
+    totalDb += ord.debitos        || 0;
+    totalAt += ord.saldo_atual    || 0;
+    rows += `<tr>
+      <td><strong>ORDINÁRIA</strong></td>
+      <td class="num ${sign(ord.saldo_anterior)}">${BRL(ord.saldo_anterior)}</td>
+      <td class="num pos">${BRL(ord.creditos)}</td>
+      <td class="num neg">${BRL(ord.debitos)}</td>
+      <td class="num ${sign(ord.saldo_atual)}">${BRL(ord.saldo_atual)}</td>
+    </tr>`;
+  }
+
+  // Linhas dos Fundos
+  (D.fundos[lastMes] || []).filter(f => f.conta !== 'TOTAL').forEach(f => {
+    totalSA += f.saldo_anterior || 0;
+    totalCr += f.creditos       || 0;
+    totalDb += f.debitos        || 0;
+    totalAt += f.saldo_atual    || 0;
+    rows += `<tr>
+      <td>${f.conta}</td>
+      <td class="num ${sign(f.saldo_anterior)}">${BRL(f.saldo_anterior)}</td>
+      <td class="num pos">${BRL(f.creditos)}</td>
+      <td class="num neg">${BRL(f.debitos)}</td>
+      <td class="num ${sign(f.saldo_atual)}">${BRL(f.saldo_atual)}</td>
+    </tr>`;
+  });
+
+  // Linha TOTAL GERAL
+  rows += `<tr class="total-row">
+    <td>TOTAL GERAL</td>
+    <td class="num">${BRL(totalSA)}</td>
+    <td class="num pos">${BRL(totalCr)}</td>
+    <td class="num neg">${BRL(totalDb)}</td>
+    <td class="num ${sign(totalAt)}">${BRL(totalAt)}</td>
+  </tr>`;
+
+  document.getElementById('tb-contas-global').innerHTML = rows;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+initInicio();
+initDespesas();
+renderOrdinaria();
+initInad();
+renderFundos();
+initConsumos();
+</script>
+</body>
+</html>
