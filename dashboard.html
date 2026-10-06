@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Condomínio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f0f4f8;color:#333}
+header{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:1.35em;font-weight:700}
+header p{font-size:0.82em;opacity:.8;margin-top:3px}
+.upd{font-size:0.78em;opacity:.7;text-align:right}
+.tabs{display:flex;background:#1a4068;overflow-x:auto}
+.tab{padding:13px 22px;color:rgba(255,255,255,.6);cursor:pointer;border-bottom:3px solid transparent;font-size:.92em;white-space:nowrap;transition:.2s}
+.tab.active,.tab:hover{color:#fff;border-bottom-color:#7EC8E3}
+.content{padding:22px;max-width:1280px;margin:0 auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px 24px;margin-bottom:20px;box-shadow:0 1px 6px rgba(0,0,0,.09)}
+.card h2{font-size:1em;color:#1F4E79;margin-bottom:14px;border-bottom:2px solid #BDD7EE;padding-bottom:7px;text-transform:uppercase;letter-spacing:.4px}
+.filters{display:flex;gap:14px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.filters label{font-size:.85em;color:#555;display:flex;align-items:center;gap:6px}
+select{padding:5px 10px;border:1px solid #ccc;border-radius:5px;font-size:.88em;background:#fff}
+.chart-wrap{position:relative;height:300px}
+table{width:100%;border-collapse:collapse;font-size:.86em}
+th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+td{padding:7px 10px;border-bottom:1px solid #eaecf0}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f5f8fc}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.total-row td{background:#D9E1F2;font-weight:700}
+.neg{color:#c0392b}.pos{color:#27ae60}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:#fff;border-radius:10px;padding:15px 18px;box-shadow:0 1px 6px rgba(0,0,0,.08);border-left:4px solid #2E75B6}
+.kpi.kpi-receita{border-left-color:#27ae60}
+.kpi.kpi-desp{border-left-color:#c0392b}
+.kpi.kpi-saldo{border-left-color:#1F4E79}
+.kpi.kpi-inad{border-left-color:#e67e22}
+.kpi-lbl{font-size:.75em;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.kpi-val{font-size:1.45em;font-weight:700;color:#1F4E79;margin-top:4px}
+.kpi-val.neg{color:#c0392b}.kpi-val.pos{color:#27ae60}
+.kpi-sub{font-size:.78em;color:#999;margin-top:3px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:900px){.row2,.row3{grid-template-columns:1fr}}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78em}
+.b-red{background:#fde8e8;color:#c00}.b-grn{background:#e6f4ea;color:#2d7a3a}.b-blu{background:#e8f0fe;color:#1a56b0}
+.saldo-bar{height:8px;border-radius:4px;background:#eee;margin-top:8px;overflow:hidden}
+.saldo-bar-fill{height:100%;border-radius:4px;background:#27ae60;transition:width .4s}
+.saldo-bar-fill.neg-fill{background:#c0392b}
+/* ── Despesa Ordinária Real ── */
+.tbl-scroll{overflow-x:auto}
+table.dor{font-size:.8em;min-width:100%}
+table.dor th{padding:7px 9px;font-size:.95em;position:sticky;top:0;z-index:2}
+table.dor th.sticky-l,table.dor td.sticky-l{position:sticky;left:0;background:#fff;z-index:1;min-width:250px}
+table.dor th.sticky-l{background:#1F4E79;z-index:3}
+table.dor td{padding:5px 9px;white-space:nowrap}
+tr.cat-row td{background:#E4ECF7;font-weight:700;color:#1F4E79;cursor:pointer;border-top:1px solid #c5d5ea}
+tr.cat-row td.sticky-l{background:#E4ECF7}
+tr.cat-row:hover td{background:#d5e2f2}
+tr.cat-row:hover td.sticky-l{background:#d5e2f2}
+tr.comp-row td{color:#555;font-size:.96em}
+tr.comp-row td.sticky-l{padding-left:26px;color:#666}
+tr.comp-row.hid{display:none}
+tr.grand td{background:#1F4E79;color:#fff;font-weight:700;font-size:1.1em;border-top:2px solid #7EC8E3}
+tr.grand td.sticky-l{background:#1F4E79;color:#fff}
+tr.subtot td{background:#F2F6FB;font-weight:600;font-style:italic;color:#555}
+tr.subtot td.sticky-l{background:#F2F6FB}
+tr.arrec td{background:#eaf6ec;font-weight:600;color:#1e6b32}
+tr.arrec td.sticky-l{background:#eaf6ec}
+tr.resu td{background:#fff6e5;font-weight:700}
+tr.resu td.sticky-l{background:#fff6e5}
+.caret{display:inline-block;width:12px;font-size:.85em;color:#2E75B6}
+.alerta{background:#fff4e5;border-left:4px solid #e67e22;padding:10px 14px;border-radius:6px;font-size:.85em;color:#8a5200;margin-bottom:14px}
+.legenda{font-size:.78em;color:#888;margin-top:10px;line-height:1.6}
+.btn-mini{padding:5px 12px;border:1px solid #2E75B6;background:#fff;color:#2E75B6;border-radius:5px;font-size:.82em;cursor:pointer}
+.btn-mini:hover{background:#2E75B6;color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🏢 Dashboard — Condomínio Edifício Curitiba e Porto Alegre</h1>
+    <p>Prestação de contas — visão consolidada</p>
+  </div>
+  <div class="upd">Atualizado em<br><span id="upd-ts"></span></div>
+</header>
+<div class="tabs">
+  <div class="tab active"  onclick="showTab('inicio','this')">🏠 Início</div>
+  <div class="tab"         onclick="showTab('despesas','this')">📊 Despesas Mensais</div>
+  <div class="tab"         onclick="showTab('ordinaria','this')">💰 Conta Ordinária</div>
+  <div class="tab"         onclick="showTab('dor','this')">🧾 Despesa Ordinária Real</div>
+  <div class="tab"         onclick="showTab('inad','this')">⚠️ Inadimplentes</div>
+  <div class="tab"         onclick="showTab('fundos','this')">🏦 Fundos</div>
+  <div class="tab"         onclick="showTab('consumos','this')">📉 Consumos & Contas</div>
+</div>
+<div class="content">
+
+  <!-- TAB: INÍCIO -->
+  <div id="sec-inicio" class="section active">
+    <div class="card" style="margin-bottom:14px">
+      <div class="filters">
+        <label>Mês de referência:
+          <select id="sel-inicio" onchange="renderInicio()"></select>
+        </label>
+      </div>
+    </div>
+    <!-- KPIs principais -->
+    <div class="kpi-grid" id="kpi-inicio"></div>
+    <!-- Gráfico receita vs despesa + fundos -->
+    <div class="row2">
+      <div class="card">
+        <h2>Receitas vs Despesas — últimos meses</h2>
+        <div class="chart-wrap" style="height:260px"><canvas id="ch-inicio-bar"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Saldos dos Fundos — mês selecionado</h2>
+        <div id="kpi-fundos-inicio" class="kpi-grid" style="margin-bottom:0"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DESPESAS -->
+  <div id="sec-despesas" class="section">
+    <div class="card">
+      <div class="filters">
+        <label>Ano: <select id="sel-ano" onchange="filterMesByAno()"></select></label>
+        <label>Mês/Ano: <select id="sel-mes" onchange="renderDespesas()"></select></label>
+      </div>
+    </div>
+    <div id="kpi-desp" class="kpi-grid"></div>
+    <div class="row2">
+      <div class="card">
+        <h2>Despesas por Categoria</h2>
+        <div class="chart-wrap"><canvas id="ch-desp-bar"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Evolução Total de Despesas</h2>
+        <div class="chart-wrap"><canvas id="ch-desp-trend"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Detalhamento por Categoria — Mês Selecionado</h2>
+      <table><thead><tr><th>Categoria</th><th class="num">Valor (R$)</th><th class="num">%</th></tr></thead>
+      <tbody id="tb-desp"></tbody></table>
+    </div>
+  </div>
+
+  <!-- TAB: CONTA ORDINÁRIA -->
+  <div id="sec-ordinaria" class="section">
+    <div id="kpi-ord" class="kpi-grid"></div>
+    <div class="row2">
+      <div class="card">
+        <h2>Receitas vs Despesas — Conta Ordinária</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-ord-recdesp"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Variação do Saldo — Conta Ordinária</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-ord-saldo"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Detalhamento Mensal</h2>
+      <table><thead><tr><th>Mês</th><th class="num">Saldo Anterior</th><th class="num">Créditos (Receitas)</th><th class="num">Débitos (Despesas)</th><th class="num">Saldo Atual</th><th class="num">Variação</th></tr></thead>
+      <tbody id="tb-ord"></tbody></table>
+    </div>
+  </div>
+
+  <!-- TAB: DESPESA ORDINÁRIA REAL -->
+  <div id="sec-dor" class="section">
+    <div class="card" style="margin-bottom:14px">
+      <div class="filters">
+        <label>Ano: <select id="sel-dor-ano" onchange="renderDOR()"></select></label>
+        <button class="btn-mini" onclick="dorToggleAll(true)">Expandir tudo</button>
+        <button class="btn-mini" onclick="dorToggleAll(false)">Recolher tudo</button>
+        <label style="margin-left:auto;font-size:.8em;color:#888">Clique na categoria para ver/ocultar a composição</label>
+      </div>
+    </div>
+
+    <div id="dor-alerta" class="alerta" style="display:none"></div>
+
+    <div id="kpi-dor" class="kpi-grid"></div>
+
+    <div class="card">
+      <h2>Despesa Ordinária Real — Composição Mês a Mês (<span id="dor-ano-lbl" style="color:#2E75B6"></span>)</h2>
+      <div class="tbl-scroll">
+        <table class="dor">
+          <thead><tr id="dor-thead"></tr></thead>
+          <tbody id="dor-tbody"></tbody>
+        </table>
+      </div>
+      <div class="legenda">
+        <b>Despesa Ordinária Real</b> = soma de todas as categorias operacionais (Pessoal, Encargos Sociais,
+        Pessoal Terceirizado, Consumos Públicos, Conservação/Manutenção, Reparos/Manutenções, Periódicas,
+        Seguros, Administrativas, Jurídico e Despesas Eventuais). É este o valor que a arrecadação mensal
+        de taxa condominial precisa cobrir.<br>
+        <b>Transferências/Ressarcimentos</b> aparecem separadamente porque não são custo de operação
+        (repasses a fundos e devoluções). Somados à despesa real compõem o <b>Total Debitado da Conta Ordinária</b>.<br>
+        <b>Arrecadação</b> = créditos da conta ordinária no mês (disponível apenas para os meses com prestação de contas importada).
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <h2>Despesa Real vs Arrecadação</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-dor-vs"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Composição da Despesa Real no Ano</h2>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-dor-pizza"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Evolução das Categorias no Ano (empilhado)</h2>
+      <div class="chart-wrap" style="height:340px"><canvas id="ch-dor-stack"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TAB: INADIMPLENTES -->
+  <div id="sec-inad" class="section">
+    <div class="card">
+      <h2>Total de Inadimplência por Mês</h2>
+      <div class="chart-wrap" style="height:220px"><canvas id="ch-inad-bar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="filters">
+        <label>Mês: <select id="sel-inad" onchange="renderInad()"></select></label>
+      </div>
+      <table><thead><tr><th>Bloco</th><th>Unidade</th><th class="num">Parcelas</th><th class="num">Total Devido</th></tr></thead>
+      <tbody id="tb-inad"></tbody></table>
+      <div id="inad-empty" style="text-align:center;padding:20px;color:#888;display:none">Nenhum inadimplente neste mês 🎉</div>
+    </div>
+    <div class="card">
+      <h2>Arrecadação a Menos por Inadimplência — Mês a Mês</h2>
+      <p style="color:#666;font-size:.85em;margin:6px 0 12px;line-height:1.5">
+        Fonte: bloco "Receitas Previstas e Realizadas" das prestações de contas (todas as contas e fundos).
+        <b>A Menos no Mês</b> = emissão prevista do mês − efetivamente arrecadado dela.
+        <b>Recuperado de Atrasos</b> = cotas de meses anteriores recebidas no mês.
+        <b>Efeito Líquido no Caixa</b> = A Menos − Recuperado (valor negativo em vermelho = o caixa perdeu).
+      </p>
+      <div class="filters">
+        <label>Ano: <select id="sel-inad-ano" onchange="renderInadAno()"></select></label>
+      </div>
+      <div style="overflow-x:auto">
+      <table><thead><tr>
+        <th>Mês</th><th class="num">Emissão Prevista</th><th class="num">Arrecadado do Mês</th>
+        <th class="num">A Menos no Mês</th><th class="num">% Não Pago</th>
+        <th class="num">Recuperado de Atrasos</th><th class="num">Efeito Líquido no Caixa</th>
+      </tr></thead><tbody id="tb-inad-ano"></tbody></table>
+      </div>
+      <div id="inad-ano-empty" style="text-align:center;padding:20px;color:#888;display:none">Sem prestação de contas importada para este ano</div>
+    </div>
+  </div>
+
+  <!-- TAB: FUNDOS -->
+  <div id="sec-fundos" class="section">
+    <div id="kpi-fundos" class="kpi-grid"></div>
+    <div class="card">
+      <h2>Evolução dos Saldos por Fundo</h2>
+      <div class="chart-wrap" style="height:360px"><canvas id="ch-fundos"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Saldos Atuais por Fundo e Mês</h2>
+      <div id="tb-fundos-wrap"></div>
+    </div>
+  </div>
+
+  <!-- TAB: CONSUMOS & CONTAS -->
+  <div id="sec-consumos" class="section">
+    <div class="card" style="margin-bottom:14px">
+      <div class="filters">
+        <label>Ano: <select id="sel-consumo-ano" onchange="renderConsumos()"></select></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>⚡ Energia Elétrica — Evolução Mensal</h2>
+      <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-energia"></canvas></div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <h2>💧 Água — Evolução Mensal</h2>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-agua"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>🔥 Gás — Evolução Mensal</h2>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-consumo-gas"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Situação Global das Contas — <span id="contas-mes-label" style="color:#2E75B6"></span></h2>
+      <table><thead><tr>
+        <th>Conta / Fundo</th>
+        <th class="num">Saldo Anterior</th>
+        <th class="num">Créditos</th>
+        <th class="num">Débitos</th>
+        <th class="num">Saldo Atual</th>
+      </tr></thead>
+      <tbody id="tb-contas-global"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const D = {"despesas": {"01/2022": {"Administrativas": 7634.56, "Consumos": 31047.57, "Manutencao": 5643.38, "Pessoal": 43650.23}, "01/2023": {"Administrativas": 7697.68, "Consumos": 41073.62, "Manutencao": 9181.54, "Pessoal": 47736.23}, "01/2024": {"Administrativas": 7748.47, "Consumos": 21863.33, "Manutencao": 6345.9, "Pessoal": 48086.73}, "01/2025": {"Administrativas": 8683.76, "Consumos": 37401.26, "Manutencao": 13985.05, "Pessoal": 54821.94}, "01/2026": {"Administrativas": 7549.35, "Consumos": 32824.82, "Manutencao": 11180.64, "Pessoal": 56141.2}, "02/2022": {"Administrativas": 12351.65, "Consumos": 28358.16, "Manutencao": 13008.32, "Pessoal": 47569.18}, "02/2023": {"Administrativas": 6846.76, "Consumos": 34531.4, "Manutencao": 12820.17, "Pessoal": 47834.67}, "02/2024": {"Administrativas": 8010.48, "Consumos": 33710.36, "Manutencao": 7559.08, "Pessoal": 48171.75}, "02/2025": {"Administrativas": 6920.6, "Consumos": 32940.66, "Manutencao": 14468.07, "Pessoal": 58003.35}, "02/2026": {"Administrativas": 10847.25, "Consumos": 19403.29, "Manutencao": 9007.58, "Pessoal": 55716.1}, "03/2021": {"Administrativas": 7683.36, "Consumos": 29765.71, "Manutencao": 2817.27, "Pessoal": 41819.99}, "03/2022": {"Administrativas": 8236.0, "Consumos": 28870.45, "Manutencao": 11400.18, "Pessoal": 45695.79}, "03/2023": {"Administrativas": 8048.16, "Consumos": 35692.11, "Manutencao": 11481.24, "Pessoal": 43126.44}, "03/2024": {"Administrativas": 8197.98, "Consumos": 29407.51, "Manutencao": 7502.18, "Pessoal": 51086.91}, "03/2025": {"Administrativas": 11488.99, "Consumos": 32359.55, "Manutencao": 12789.55, "Pessoal": 54187.47}, "03/2026": {"Administrativas": 9583.51, "Consumos": 44897.99, "Manutencao": 8946.34, "Pessoal": 62183.34}, "04/2021": {"Administrativas": 4853.83, "Consumos": 21539.95, "Manutencao": 14633.01, "Pessoal": 39823.21}, "04/2022": {"Administrativas": 10553.15, "Consumos": 14269.6, "Manutencao": 12212.47, "Pessoal": 48106.31}, "04/2023": {"Administrativas": 8284.89, "Consumos": 14957.83, "Manutencao": 12440.17, "Pessoal": 43589.74}, "04/2024": {"Administrativas": 8518.7, "Consumos": 31770.61, "Manutencao": 11124.55, "Pessoal": 44114.51}, "04/2025": {"Administrativas": 8703.49, "Consumos": 34951.08, "Manutencao": 11398.78, "Pessoal": 52812.78}, "04/2026": {"Administrativas": 12158.49, "Consumos": 51440.63, "Manutencao": 11133.62, "Pessoal": 56773.85}, "05/2021": {"Administrativas": 5149.31, "Consumos": 27697.66, "Manutencao": 15802.49, "Pessoal": 45985.79}, "05/2022": {"Administrativas": 6373.77, "Consumos": 52564.16, "Manutencao": 12885.7, "Pessoal": 49180.1}, "05/2023": {"Administrativas": 7104.67, "Consumos": 64675.5, "Manutencao": 16974.97, "Pessoal": 45597.13}, "05/2024": {"Administrativas": 11072.08, "Consumos": 35347.05, "Manutencao": 9969.84, "Pessoal": 47692.99}, "05/2025": {"Administrativas": 9607.85, "Consumos": 41582.99, "Manutencao": 8367.8, "Pessoal": 52710.76}, "05/2026": {"Administrativas": 11462.57, "Consumos": 44330.22, "Manutencao": 12065.17, "Pessoal": 65734.65}, "06/2021": {"Administrativas": 5167.62, "Consumos": 11865.1, "Manutencao": 9097.44, "Pessoal": 40051.77}, "06/2022": {"Administrativas": 6438.2, "Consumos": 35525.44, "Manutencao": 7297.2, "Pessoal": 45500.14}, "06/2023": {"Administrativas": 6591.0, "Consumos": 45367.3, "Manutencao": 14997.33, "Pessoal": 41480.11}, "06/2024": {"Administrativas": 6926.09, "Consumos": 15679.61, "Manutencao": 18587.75, "Pessoal": 46659.73}, "06/2025": {"Administrativas": 7624.45, "Consumos": 42372.59, "Manutencao": 9085.48, "Pessoal": 55091.84}, "06/2026": {"A CLASSIFICAR": 1586.67, "Administrativas": 9801.8, "Consumos": 46324.19, "Manutencao": 11160.31, "Pessoal": 62077.51}, "07/2021": {"Administrativas": 5017.58, "Consumos": 47914.28, "Manutencao": 8624.57, "Pessoal": 45039.62}, "07/2022": {"Administrativas": 6953.04, "Consumos": 43875.24, "Manutencao": 7649.38, "Pessoal": 45564.77}, "07/2023": {"Administrativas": 6353.44, "Consumos": 42740.7, "Manutencao": 11756.31, "Pessoal": 44028.72}, "07/2024": {"Administrativas": 7668.57, "Consumos": 65325.85, "Manutencao": 9934.06, "Pessoal": 48817.58}, "07/2025": {"Administrativas": 7701.61, "Consumos": 51418.38, "Manutencao": 9560.11, "Pessoal": 52767.04}, "07/2026": {"A CLASSIFICAR": 169.0, "Administrativas": 9018.8, "Consumos": 47474.51, "Manutencao": 15263.7, "Pessoal": 56159.79}, "08/2021": {"Administrativas": 6172.1, "Consumos": 33713.36, "Manutencao": 11223.57, "Pessoal": 39172.92}, "08/2022": {"Administrativas": 6200.04, "Consumos": 45355.0, "Manutencao": 9074.64, "Pessoal": 50180.05}, "08/2023": {"Administrativas": 6235.11, "Consumos": 42815.02, "Manutencao": 9477.97, "Pessoal": 43751.59}, "08/2024": {"Administrativas": 7422.45, "Consumos": 45366.67, "Manutencao": 10583.94, "Pessoal": 55087.9}, "08/2025": {"Administrativas": 9285.6, "Consumos": 56581.74, "Manutencao": 11876.48, "Pessoal": 53791.64}, "08/2026": {"A CLASSIFICAR": 2432.33, "Administrativas": 9231.8, "Consumos": 42880.66, "Manutencao": 12919.29, "Pessoal": 58738.39}, "09/2021": {"Administrativas": 6326.67, "Consumos": 29275.38, "Manutencao": 7561.05, "Pessoal": 40615.38}, "09/2022": {"Administrativas": 6056.55, "Consumos": 47968.1, "Manutencao": 10348.49, "Pessoal": 125396.65}, "09/2023": {"Administrativas": 6259.81, "Consumos": 17279.83, "Manutencao": 5981.23, "Pessoal": 44887.58}, "09/2024": {"Administrativas": 7944.19, "Consumos": 39372.31, "Manutencao": 7590.52, "Pessoal": 49359.71}, "09/2025": {"Administrativas": 7508.72, "Consumos": 51913.82, "Manutencao": 10663.21, "Pessoal": 67014.37}, "10/2021": {"Administrativas": 6191.46, "Consumos": 14127.69, "Manutencao": 6324.87, "Pessoal": 40944.43}, "10/2022": {"Administrativas": 6970.26, "Consumos": 45977.97, "Manutencao": 10422.73, "Pessoal": 46327.03}, "10/2023": {"Administrativas": 6981.32, "Consumos": 61055.72, "Manutencao": 9893.16, "Pessoal": 48006.85}, "10/2024": {"Administrativas": 10055.07, "Consumos": 40978.34, "Manutencao": 10400.79, "Pessoal": 48863.74}, "10/2025": {"Administrativas": 8145.44, "Consumos": 20922.77, "Manutencao": 9298.36, "Pessoal": 54793.36}, "11/2021": {"Administrativas": 8296.55, "Consumos": 47939.11, "Manutencao": 8365.76, "Pessoal": 50192.22}, "11/2022": {"Administrativas": 6250.87, "Consumos": 38513.67, "Manutencao": 11605.91, "Pessoal": 41653.98}, "11/2023": {"Administrativas": 6158.21, "Consumos": 36935.48, "Manutencao": 7747.55, "Pessoal": 49998.22}, "11/2024": {"Administrativas": 8487.76, "Consumos": 17980.74, "Manutencao": 11671.15, "Pessoal": 46617.6}, "11/2025": {"Administrativas": 7723.69, "Consumos": 46086.74, "Manutencao": 7502.34, "Pessoal": 54677.03}, "12/2021": {"Administrativas": 9618.76, "Consumos": 28400.2, "Manutencao": 86065.51, "Pessoal": 46884.45}, "12/2022": {"Administrativas": 10191.59, "Consumos": 36820.19, "Manutencao": 12987.69, "Pessoal": 44402.41}, "12/2023": {"Administrativas": 11719.22, "Consumos": 44750.64, "Manutencao": 6189.24, "Pessoal": 49370.7}, "12/2024": {"Administrativas": 13076.68, "Consumos": 61206.86, "Manutencao": 14179.08, "Pessoal": 51203.38}, "12/2025": {"Administrativas": 12677.21, "Consumos": 64569.32, "Manutencao": 10848.4, "Pessoal": 56325.88}}, "fundos": {"01/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 299870.95, "creditos": 9834.28, "debitos": 0.0, "saldo_atual": 309705.23}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 46723.69, "creditos": 7516.41, "debitos": 3353.67, "saldo_atual": 50886.43}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 88913.5, "creditos": 10471.08, "debitos": 2753.22, "saldo_atual": 96631.36}, {"conta": "GARAGEM", "saldo_anterior": 223629.97, "creditos": 2910.61, "debitos": 22484.0, "saldo_atual": 204056.58}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "02/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 309705.23, "creditos": 8975.85, "debitos": 0.0, "saldo_atual": 318681.08}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 50886.43, "creditos": 7457.15, "debitos": 6005.86, "saldo_atual": 52337.72}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 96631.36, "creditos": 10307.88, "debitos": 1172.29, "saldo_atual": 105766.95}, {"conta": "GARAGEM", "saldo_anterior": 204056.58, "creditos": 3457.39, "debitos": 42000.0, "saldo_atual": 165513.97}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "03/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 318681.08, "creditos": 10356.84, "debitos": 0.0, "saldo_atual": 329037.92}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 52337.72, "creditos": 7838.36, "debitos": 108.64, "saldo_atual": 60067.44}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 105766.95, "creditos": 10842.51, "debitos": 4726.1, "saldo_atual": 111883.36}, {"conta": "GARAGEM", "saldo_anterior": 165513.97, "creditos": 3457.39, "debitos": 12600.0, "saldo_atual": 156371.36}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "04/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 329037.92, "creditos": 9240.94, "debitos": 0.0, "saldo_atual": 338278.86}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 60067.44, "creditos": 6766.57, "debitos": 108.64, "saldo_atual": 66725.37}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 111883.36, "creditos": 9266.17, "debitos": 0.0, "saldo_atual": 121149.53}, {"conta": "GARAGEM", "saldo_anterior": 156371.36, "creditos": 3457.39, "debitos": 13128.3, "saldo_atual": 146700.45}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": 0.0, "creditos": 0.0, "debitos": 446.87, "saldo_atual": -446.87}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "05/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 338278.86, "creditos": 9500.03, "debitos": 0.0, "saldo_atual": 347778.89}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 66725.37, "creditos": 7337.89, "debitos": 118.41, "saldo_atual": 73944.85}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 121149.53, "creditos": 9377.58, "debitos": 0.0, "saldo_atual": 130527.11}, {"conta": "GARAGEM", "saldo_anterior": 146700.45, "creditos": 3175.72, "debitos": 12938.26, "saldo_atual": 136937.91}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": -446.87, "creditos": 0.0, "debitos": 73.96, "saldo_atual": -520.83}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "06/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 347778.89, "creditos": 10120.37, "debitos": 0.0, "saldo_atual": 357899.26}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 73944.85, "creditos": 7935.15, "debitos": 118.41, "saldo_atual": 81761.59}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 130527.11, "creditos": 10090.79, "debitos": 0.0, "saldo_atual": 140617.9}, {"conta": "GARAGEM", "saldo_anterior": 136937.91, "creditos": 3747.4, "debitos": 0.0, "saldo_atual": 140685.31}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": -520.83, "creditos": 0.0, "debitos": 0.0, "saldo_atual": -520.83}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "07/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 357899.26, "creditos": 10584.4, "debitos": 0.0, "saldo_atual": 368483.66}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 81761.59, "creditos": 7718.9, "debitos": 9570.56, "saldo_atual": 79909.93}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 140617.9, "creditos": 9742.09, "debitos": 0.0, "saldo_atual": 150359.99}, {"conta": "GARAGEM", "saldo_anterior": 140685.31, "creditos": 3457.39, "debitos": 26786.67, "saldo_atual": 117356.03}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": -520.83, "creditos": 0.0, "debitos": 0.0, "saldo_atual": -520.83}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}], "08/2026": [{"conta": "FUNDO DE RESERVA", "saldo_anterior": 368483.66, "creditos": 9851.24, "debitos": 0.0, "saldo_atual": 378334.9}, {"conta": "OBRAS/MELHORIAS", "saldo_anterior": 3750.51, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 3750.51}, {"conta": "FÉRIAS / 13º SALÁRIO", "saldo_anterior": 79909.93, "creditos": 7433.96, "debitos": 118.41, "saldo_atual": 87225.48}, {"conta": "FUNDO DE MANUTENÇÃO", "saldo_anterior": 150359.99, "creditos": 9409.1, "debitos": 0.0, "saldo_atual": 159769.09}, {"conta": "GARAGEM", "saldo_anterior": 117356.03, "creditos": 3589.94, "debitos": 1586.66, "saldo_atual": 119359.31}, {"conta": "SALA GINÁSTICA/ACADEMIA", "saldo_anterior": -520.83, "creditos": 0.0, "debitos": 0.0, "saldo_atual": -520.83}, {"conta": "TRANSFERÊNCIA ENTRE CONTAS", "saldo_anterior": 8000.56, "creditos": 0.0, "debitos": 0.0, "saldo_atual": 8000.56}]}, "ordinaria": {"01/2026": {"saldo_anterior": -32012.26, "creditos": 126312.95, "debitos": 107696.01, "saldo_atual": -13395.32}, "02/2026": {"saldo_anterior": -13395.32, "creditos": 114903.05, "debitos": 94974.22, "saldo_atual": 6533.51}, "03/2026": {"saldo_anterior": 6533.51, "creditos": 118183.33, "debitos": 125611.18, "saldo_atual": -894.34}, "04/2026": {"saldo_anterior": -894.34, "creditos": 105386.74, "debitos": 131506.59, "saldo_atual": -27014.19}, "05/2026": {"saldo_anterior": -27014.19, "creditos": 110230.4, "debitos": 133592.61, "saldo_atual": -50376.4}, "06/2026": {"saldo_anterior": -50376.4, "creditos": 120721.06, "debitos": 130950.48, "saldo_atual": -60605.82}, "07/2026": {"saldo_anterior": -60605.82, "creditos": 121458.75, "debitos": 128085.8, "saldo_atual": -67232.87}, "08/2026": {"saldo_anterior": -67232.87, "creditos": 118211.9, "debitos": 126202.47, "saldo_atual": -75223.44}}, "inadimplentes": {"01/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 56, "total": 84048.37}, {"bloco": "A", "unidade": "000041", "parcelas": 15, "total": 14822.87}, {"bloco": "J", "unidade": "000081", "parcelas": 6, "total": 9793.23}, {"bloco": "", "unidade": "000022", "parcelas": 4, "total": 8618.82}, {"bloco": "A", "unidade": "000045", "parcelas": 7, "total": 4716.27}, {"bloco": "", "unidade": "000104", "parcelas": 1, "total": 1704.68}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 674.36}], "02/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 57, "total": 85878.59}, {"bloco": "A", "unidade": "000041", "parcelas": 13, "total": 13335.76}, {"bloco": "", "unidade": "000022", "parcelas": 5, "total": 10658.23}, {"bloco": "J", "unidade": "000081", "parcelas": 5, "total": 8159.7}, {"bloco": "A", "unidade": "000045", "parcelas": 6, "total": 4965.26}, {"bloco": "", "unidade": "000104", "parcelas": 1, "total": 1704.68}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 639.02}], "03/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 58, "total": 87635.94}, {"bloco": "A", "unidade": "000041", "parcelas": 9, "total": 10250.66}, {"bloco": "J", "unidade": "000081", "parcelas": 6, "total": 9640.98}, {"bloco": "", "unidade": "000045", "parcelas": 7, "total": 5152.49}], "04/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 59, "total": 89485.56}, {"bloco": "J", "unidade": "000081", "parcelas": 7, "total": 11206.66}, {"bloco": "A", "unidade": "000041", "parcelas": 8, "total": 10202.23}, {"bloco": "A", "unidade": "000045", "parcelas": 5, "total": 4307.02}, {"bloco": "", "unidade": "000074", "parcelas": 1, "total": 1860.11}, {"bloco": "", "unidade": "000013", "parcelas": 1, "total": 1711.55}, {"bloco": "", "unidade": "000034", "parcelas": 1, "total": 1565.68}, {"bloco": "", "unidade": "000016", "parcelas": 1, "total": 646.36}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 646.36}], "05/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 60, "total": 91409.37}, {"bloco": "J", "unidade": "000081", "parcelas": 8, "total": 12840.21}, {"bloco": "A", "unidade": "000041", "parcelas": 9, "total": 10270.1}, {"bloco": "A", "unidade": "000045", "parcelas": 6, "total": 4790.88}, {"bloco": "", "unidade": "000074", "parcelas": 2, "total": 3800.83}, {"bloco": "", "unidade": "000082", "parcelas": 1, "total": 2651.09}, {"bloco": "", "unidade": "000052", "parcelas": 1, "total": 2374.94}, {"bloco": "A", "unidade": "000043", "parcelas": 1, "total": 2092.9}, {"bloco": "", "unidade": "000013", "parcelas": 1, "total": 1711.55}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 674.35}], "06/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 61, "total": 93355.63}, {"bloco": "J", "unidade": "000081", "parcelas": 9, "total": 14494.29}, {"bloco": "A", "unidade": "000041", "parcelas": 5, "total": 6943.6}, {"bloco": "", "unidade": "000074", "parcelas": 3, "total": 5765.95}, {"bloco": "A", "unidade": "000045", "parcelas": 6, "total": 5285.58}, {"bloco": "", "unidade": "000033", "parcelas": 1, "total": 1808.19}, {"bloco": "", "unidade": "000013", "parcelas": 1, "total": 1711.55}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 682.84}], "07/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 62, "total": 95353.06}, {"bloco": "J", "unidade": "000081", "parcelas": 10, "total": 16195.19}, {"bloco": "A", "unidade": "000041", "parcelas": 7, "total": 8644.5}, {"bloco": "A", "unidade": "000045", "parcelas": 6, "total": 5811.36}, {"bloco": "", "unidade": "000074", "parcelas": 3, "total": 5765.95}, {"bloco": "", "unidade": "000033", "parcelas": 2, "total": 3667.55}, {"bloco": "", "unidade": "000121", "parcelas": 1, "total": 2179.19}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 702.16}], "08/2026": [{"bloco": "J", "unidade": "000131", "parcelas": 62, "total": 95353.06}, {"bloco": "J", "unidade": "000081", "parcelas": 11, "total": 17923.33}, {"bloco": "A", "unidade": "000041", "parcelas": 7, "total": 8644.59}, {"bloco": "", "unidade": "000074", "parcelas": 4, "total": 7819.05}, {"bloco": "A", "unidade": "000045", "parcelas": 5, "total": 6354.82}, {"bloco": "", "unidade": "000033", "parcelas": 3, "total": 5556.7}, {"bloco": "", "unidade": "000022", "parcelas": 1, "total": 2187.52}, {"bloco": "", "unidade": "000121", "parcelas": 1, "total": 2179.19}, {"bloco": "", "unidade": "000001", "parcelas": 1, "total": 1889.15}, {"bloco": "A", "unidade": "000034", "parcelas": 1, "total": 1728.14}, {"bloco": "", "unidade": "000066", "parcelas": 1, "total": 713.41}]}, "inad_mensal": {"01/2026": {"previsto": 137684.59, "realizado": 126458.71, "deficit": 11225.88, "recuperado": 19125.04, "estoque_anterior": 132277.76}, "02/2026": {"previsto": 139600.23, "realizado": 128029.15, "deficit": 11571.08, "recuperado": 4809.5, "estoque_anterior": 118579.66}, "03/2026": {"previsto": 130128.94, "realizado": 119744.22, "deficit": 10384.72, "recuperado": 17108.88, "estoque_anterior": 119404.23}, "04/2026": {"previsto": 139561.43, "realizado": 122075.31, "deficit": 17486.12, "recuperado": 2459.58, "estoque_anterior": 106604.99}, "05/2026": {"previsto": 146440.65, "realizado": 123969.21, "deficit": 22471.44, "recuperado": 5273.6, "estoque_anterior": 115418.38}, "06/2026": {"previsto": 147161.84, "realizado": 129749.91, "deficit": 17411.93, "recuperado": 13353.15, "estoque_anterior": 125988.85}, "07/2026": {"previsto": 153834.43, "realizado": 135816.85, "deficit": 18017.58, "recuperado": 3256.96, "estoque_anterior": 123558.34}, "08/2026": {"previsto": 151377.37, "realizado": 129422.67, "deficit": 21954.7, "recuperado": 3297.34, "estoque_anterior": 131691.6}}, "consumos": {"01/2022": {"Energia Elétrica": 2129.61, "Gás": 18448.32, "Água": 10008.26}, "01/2023": {"Energia Elétrica": 4298.51, "Gás": 25207.64, "Água": 11135.7}, "01/2024": {"Energia Elétrica": 3456.0, "Gás": 18214.44}, "01/2025": {"Energia Elétrica": 3833.65, "Gás": 20010.27, "Água": 12793.12}, "01/2026": {"Energia Elétrica": 4271.02, "Gás": 15677.62, "Água": 12208.23}, "02/2022": {"Energia Elétrica": 4053.6, "Gás": 15845.67, "Água": 7997.51}, "02/2023": {"Energia Elétrica": 3848.07, "Gás": 21353.41, "Água": 8894.85}, "02/2024": {"Energia Elétrica": 3771.44, "Gás": 18665.72, "Água": 10818.37}, "02/2025": {"Energia Elétrica": 3885.84, "Gás": 16757.98, "Água": 11775.26}, "02/2026": {"Energia Elétrica": 4060.25, "Gás": 253.58, "Água": 14421.51}, "03/2021": {"Energia Elétrica": 3782.44, "Gás": 19904.49, "Água": 5621.53}, "03/2022": {"Energia Elétrica": 4280.55, "Gás": 14470.19, "Água": 9658.33}, "03/2023": {"Energia Elétrica": 3699.37, "Gás": 21418.45, "Água": 10142.52}, "03/2024": {"Energia Elétrica": 3356.74, "Gás": 14433.1, "Água": 11168.55}, "03/2025": {"Energia Elétrica": 4077.65, "Gás": 13764.02, "Água": 13996.1}, "03/2026": {"Energia Elétrica": 4257.73, "Gás": 39972.31}, "04/2021": {"Energia Elétrica": 3145.64, "Gás": 11320.73, "Água": 6657.18}, "04/2022": {"Energia Elétrica": 4343.65, "Gás": 122.87, "Água": 9360.34}, "04/2023": {"Energia Elétrica": 4226.6, "Gás": 121.11, "Água": 10173.45}, "04/2024": {"Energia Elétrica": 3826.67, "Gás": 17100.0, "Água": 10389.11}, "04/2025": {"Energia Elétrica": 3313.82, "Gás": 18278.69, "Água": 12751.84}, "04/2026": {"Energia Elétrica": 4168.16, "Gás": 20254.73, "Água": 26550.99}, "05/2021": {"Energia Elétrica": 3037.02, "Gás": 15771.78, "Água": 8472.46}, "05/2022": {"Energia Elétrica": 3846.65, "Gás": 38165.65, "Água": 10105.48}, "05/2023": {"Energia Elétrica": 3638.31, "Gás": 49732.05, "Água": 10864.31}, "05/2024": {"Energia Elétrica": 3733.62, "Gás": 19737.18, "Água": 11417.06}, "05/2025": {"Energia Elétrica": 3891.68, "Gás": 23900.14, "Água": 13259.2}, "05/2026": {"Energia Elétrica": 4432.91, "Gás": 24325.52, "Água": 14903.84}, "06/2021": {"Energia Elétrica": 3012.78, "Gás": 138.8, "Água": 8297.12}, "06/2022": {"Energia Elétrica": 3583.56, "Gás": 22421.87, "Água": 9073.63}, "06/2023": {"Energia Elétrica": 4063.42, "Gás": 30169.46, "Água": 10688.58}, "06/2024": {"Energia Elétrica": 3779.3, "Gás": 227.59, "Água": 11200.93}, "06/2025": {"Energia Elétrica": 3954.69, "Gás": 25474.1, "Água": 12304.88}, "06/2026": {"Energia Elétrica": 3904.27, "Gás": 27182.65, "Água": 14569.32}, "07/2021": {"Energia Elétrica": 3296.49, "Gás": 34698.19, "Água": 9503.2}, "07/2022": {"Energia Elétrica": 3248.44, "Gás": 28137.32, "Água": 12043.1}, "07/2023": {"Energia Elétrica": 3876.06, "Gás": 26851.25, "Água": 11567.55}, "07/2024": {"Energia Elétrica": 3370.89, "Gás": 49758.95, "Água": 11714.42}, "07/2025": {"Energia Elétrica": 3987.76, "Gás": 32855.82, "Água": 13911.53}, "07/2026": {"Energia Elétrica": 4158.65, "Gás": 28067.59, "Água": 14569.32}, "08/2021": {"Energia Elétrica": 3705.86, "Gás": 19868.89, "Água": 9722.21}, "08/2022": {"Energia Elétrica": 3962.23, "Gás": 31033.74, "Água": 9915.68}, "08/2023": {"Energia Elétrica": 3888.57, "Gás": 23811.51, "Água": 14669.1}, "08/2024": {"Energia Elétrica": 3849.95, "Gás": 28656.31, "Água": 12378.82}, "08/2025": {"Energia Elétrica": 4621.39, "Gás": 36431.22, "Água": 14865.86}, "08/2026": {"Energia Elétrica": 4681.33, "Gás": 22946.27, "Água": 14569.32}, "09/2021": {"Energia Elétrica": 3946.71, "Gás": 15454.69, "Água": 9457.58}, "09/2022": {"Energia Elétrica": 3989.68, "Gás": 32751.37, "Água": 10781.82}, "09/2023": {"Energia Elétrica": 4064.73, "Gás": 157.11, "Água": 12603.16}, "09/2024": {"Energia Elétrica": 3877.25, "Gás": 22218.92, "Água": 12794.55}, "09/2025": {"Energia Elétrica": 4951.94, "Gás": 27656.0, "Água": 18642.61}, "10/2021": {"Energia Elétrica": 3737.93, "Gás": 126.66, "Água": 9831.72}, "10/2022": {"Energia Elétrica": 4170.54, "Gás": 30293.19, "Água": 11238.81}, "10/2023": {"Energia Elétrica": 4242.63, "Gás": 43551.76, "Água": 12806.5}, "10/2024": {"Energia Elétrica": 4016.48, "Gás": 22774.1, "Água": 13706.17}, "10/2025": {"Energia Elétrica": 4614.26, "Gás": 148.44, "Água": 15494.02}, "11/2021": {"Energia Elétrica": 3998.93, "Gás": 34039.48, "Água": 9439.32}, "11/2022": {"Energia Elétrica": 3808.2, "Gás": 23707.11, "Água": 10998.36}, "11/2023": {"Energia Elétrica": 3942.85, "Gás": 20522.04, "Água": 12015.76}, "11/2024": {"Energia Elétrica": 4161.06, "Gás": 296.32, "Água": 13041.77}, "11/2025": {"Energia Elétrica": 4598.2, "Gás": 26522.5, "Água": 14298.09}, "12/2021": {"Energia Elétrica": 4367.72, "Gás": 14487.67, "Água": 9083.43}, "12/2022": {"Energia Elétrica": 3634.01, "Gás": 22388.24, "Água": 10462.17}, "12/2023": {"Energia Elétrica": 4886.48, "Gás": 13986.25, "Água": 25423.08}, "12/2024": {"Energia Elétrica": 3910.24, "Gás": 43948.63, "Água": 12802.08}, "12/2025": {"Energia Elétrica": 4437.6, "Gás": 48378.91, "Água": 11084.89}}, "ord_detalhe": {"01/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 910.0, "Correio": 149.85, "Cópias": 26.6, "Freitas Lopes": 2650.0, "Isencao": 778.54, "Tarifas Bancárias": 428.18}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 2129.61, "Gás": 18448.32, "Telefone": 461.38, "Água": 10008.26}, "DESPESAS EVENTUAIS": {"Diversas": 262.85}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3198.22, "I.N.S.S.": 9259.43, "P.I.S.": 541.06, "Sindicato dos Empregados": 221.69}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 5480.0, "Empréstimo": 460.97, "Imposto de Renda": 2069.8, "Líquido de Salário": 12730.0, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 286.7, "Seguro Saúde/Assist. Médica": 637.62, "Vale Transp./Aliment./Refeição": 8398.08}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1691.49}, "SEGUROS": {"Seguro": 1028.54}}, "01/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Certificado Digital": 546.0, "Correio": 72.85, "Cópias": 40.0, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 310.44}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 3039.05, "Jardim": 387.45, "Manutenção Basica": 4461.04, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4298.51, "Gás": 25207.64, "Telefone": 431.77, "Água": 11135.7}, "DESPESAS EVENTUAIS": {"Diversas": 90.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3165.57, "I.N.S.S.": 9439.54, "P.I.S.": 522.59, "Sindicato dos Empregados": 143.04}, "JURÍDICO": {"Assistencia Juridica": 1570.0}, "PESSOAL": {"Adiantamento Salarial": 4682.0, "Empréstimo": 578.95, "Imposto de Renda": 2606.27, "Líquido de Salário": 12748.0, "Normas Reg. Minist. do Trab.": 639.14, "Pensão Alimentícia": 317.46, "Seguro Saúde/Assist. Médica": 332.74, "Vale Transp./Aliment./Refeição": 8317.87}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 4243.06}, "SEGUROS": {"Seguro": 861.09}}, "01/2024": {"ADMINISTRATIVAS": {"Auditoria mensal": 527.97, "Correio": 73.5, "Cópias": 36.0, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 283.64}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3181.75, "Jardim": 410.0, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3456.0, "Gás": 18214.44, "Telefone": 454.83, "Água": -261.94}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3274.17, "I.N.S.S.": 9665.11, "P.I.S.": 551.06, "Sindicato dos Empregados": 462.19}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Extintores": 600.06}, "PESSOAL": {"Adiantamento Salarial": 4428.0, "Empréstimo": 1025.65, "Imposto de Renda": 3123.84, "Líquido de Salário": 12957.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 987.62, "Uniformes": 998.63, "Vale Transp./Aliment./Refeição": 10202.9}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 837.2}, "SEGUROS": {"Seguro": 1392.15}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 120.0}}, "01/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 84.15, "Cópias": 49.8, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 344.67, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Elevadores": 3389.66, "Jardim": 430.5, "Manutenção Basica": 1366.15, "Material de Limpeza": 241.6, "Sala de Ginástica": 2249.15}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3833.65, "Gás": 20010.27, "Telefone": 764.22, "Água": 12793.12}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 2770.21}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3630.34, "I.N.S.S.": 10892.2, "P.I.S.": 297.65, "Sindicato dos Empregados": 525.48}, "JURÍDICO": {"Honorários Advocatícios": 1726.91}, "PESSOAL": {"Adiantamento Salarial": 5033.0, "Empréstimo": 446.7, "Imposto de Renda": 3242.32, "Líquido de Salário": 17105.99, "Normas Reg. Minist. do Trab.": 424.32, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 716.96, "Vale Transp./Aliment./Refeição": 12388.5}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2155.89}, "SEGUROS": {"Seguro": 1661.76}}, "01/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 47.9, "Cópias": 44.5, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 375.52, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3587.42, "Jardim": 520.0, "Manutenção Sanitária": 808.0, "Material de Limpeza": 1002.34, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4271.02, "Gás": 15677.62, "Telefone": 667.95, "Água": 12208.23}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2566.15, "I.N.S.S.": 11648.98, "P.I.S.": 320.77, "Sindicato dos Empregados": 562.35}, "JURÍDICO": {"Honorários Advocatícios": 1819.29}, "PESSOAL": {"Adiantamento Salarial": 5121.0, "Cesta Natal": 1451.05, "Empréstimo": 1519.46, "Imposto de Renda": 2219.05, "Líquido de Salário": 16344.0, "Manutenção Relógio de Ponto": 124.82, "Normas Reg. Minist. do Trab.": 440.56, "Seguro Saúde/Assist. Médica": 337.96, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 11888.75}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1160.0}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 3063.12}}, "02/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 149.85, "Cópias": 318.31, "Freitas Lopes": 2650.0, "Isencao": 817.47, "Tarifas Bancárias": 338.4}, "CONSERVAÇÃO/MANUTENÇÃO": {"Elevadores": 2713.0, "Manutenção Basica": 2009.76, "Material de Limpeza": 827.7, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4053.6, "Gás": 15845.67, "Telefone": 461.38, "Água": 7997.51}, "DESPESAS EVENTUAIS": {"Diversas": 110.0, "Servicos Prestados": 1451.6}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2628.6, "I.N.S.S.": 11290.89, "P.I.S.": 328.57, "Sindicato dos Empregados": 152.09}, "JURÍDICO": {"Assistencia Juridica": 1400.0, "Custos Processuais Ultragaz": 5069.08}, "PESSOAL": {"Adiantamento Salarial": 6057.0, "Empréstimo": 960.97, "Imposto de Renda": 2069.8, "Líquido de Salário": 15040.0, "Normas Reg. Minist. do Trab.": 425.56, "Seguro Saúde/Assist. Médica": 625.9, "Vale Transp./Aliment./Refeição": 7989.8}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 5316.26}, "SEGUROS": {"Seguro": 1028.54}}, "02/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Cópias": 28.73, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 304.64}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 3045.84, "Jardim": 2769.34, "Manutenção Basica": 3879.74, "Material de Limpeza": 1042.25}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3848.07, "Gás": 21353.41, "Telefone": 435.07, "Água": 8894.85}, "DESPESAS EVENTUAIS": {"Diversas": 45.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2285.18, "I.N.S.S.": 10406.56, "P.I.S.": 285.64, "Sindicato dos Empregados": 95.81}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Extintores": 1479.0}, "PESSOAL": {"Adiantamento Salarial": 5571.0, "Empréstimo": 578.95, "Imposto de Renda": 1090.46, "Líquido de Salário": 13280.86, "Normas Reg. Minist. do Trab.": 435.98, "Pensão Alimentícia": 314.07, "Seguro Saúde/Assist. Médica": 546.32, "Vale Transp./Aliment./Refeição": 8493.83}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 4450.01}, "SEGUROS": {"Seguro": 861.09}}, "02/2024": {"ADMINISTRATIVAS": {"Auditoria mensal": 527.97, "Certificado Digital": 221.0, "Cópias": 15.3, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 268.15}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 951.89, "Elevadores": 3188.36, "Jardim": 429.37, "Manutenção Basica": 165.0, "Material de Limpeza": 871.2}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3771.44, "Gás": 18665.72, "Telefone": 454.83, "Água": 10818.37}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2525.1, "I.N.S.S.": 11447.13, "P.I.S.": 315.63, "Sindicato dos Empregados": 315.6}, "JURÍDICO": {"Assistencia Juridica": 1669.7}, "PERIÓDICAS": {"Extintores": 600.06}, "PESSOAL": {"Adiantamento Salarial": 5960.0, "Empréstimo": 1025.65, "Imposto de Renda": 1301.71, "Líquido de Salário": 13471.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 256.0, "Seguro de Vida Funcionários": 365.81, "Uniformes": 998.63, "Vale Transp./Aliment./Refeição": 9778.93}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1353.2}, "SEGUROS": {"Seguro": 1393.15}}, "02/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Cópias": 167.57, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 343.63, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Elevadores": 3399.48, "Jardim": 515.08, "Manutenção Basica": 2695.85, "Material de Limpeza": 1324.26}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3885.84, "Gás": 16757.98, "Telefone": 521.58, "Água": 11775.26}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 1043.04}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2913.56, "I.N.S.S.": 12676.34, "P.I.S.": 350.75, "Sindicato dos Empregados": 350.72}, "JURÍDICO": {"Honorários Advocatícios": 1592.93}, "PESSOAL": {"Adiantamento Salarial": 6950.0, "Empréstimo": 446.7, "Imposto de Renda": 1809.28, "Líquido de Salário": 15880.0, "Normas Reg. Minist. do Trab.": 424.86, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 732.44, "Vale Transp./Aliment./Refeição": 11197.29}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 4152.93}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 4108.47}}, "02/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 47.9, "Cópias": 163.8, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 412.92, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3596.6, "Jardim": 590.88, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4060.25, "Gás": 253.58, "Telefone": 667.95, "Água": 14421.51}, "DESPESAS EVENTUAIS": {"Aquisição": 77.97}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2824.69, "I.N.S.S.": 12918.42, "P.I.S.": 353.09, "Sindicato dos Empregados": 353.05}, "JURÍDICO": {"Honorários Advocatícios": 3243.53}, "PESSOAL": {"Adiantamento Salarial": 6469.0, "Empréstimo": 1519.46, "Imposto de Renda": 1627.29, "Líquido de Salário": 14786.0, "Manutenção Relógio de Ponto": 124.82, "Normas Reg. Minist. do Trab.": 440.56, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 12286.22}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2542.37}, "SEGUROS": {"Seguro": 1716.96}}, "03/2021": {"ADMINISTRATIVAS": {"Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 642.06}, "CONSERVAÇÃO/MANUTENÇÃO": {"Material de Limpeza": 595.22}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3782.44, "Gás": 19904.49, "Telefone": 457.25, "Água": 5621.53}, "DESPESAS EVENTUAIS": {"Diversas": 2952.5, "Servicos Prestados": 970.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2321.32, "I.N.S.S.": 10026.5, "P.I.S.": 275.03}, "PERIÓDICAS": {"Extintores": 473.25}, "PESSOAL": {"Adiantamento Salarial": 6525.0, "Empréstimo": 460.97, "Imposto de Renda": 579.6, "Líquido de Salário": 13353.31, "Pensão Alimentícia": 261.8, "Seguro de Vida Funcionários": 330.66, "Vale Transp./Aliment./Refeição": 7685.8}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 778.8}, "SEGUROS": {"Seguro": 726.61}}, "03/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 109.2, "Cópias": 85.0, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 366.15}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 1152.89, "Elevadores": 2713.0, "Manutenção Basica": 1199.75, "Material de Limpeza": 477.6, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4280.55, "Gás": 14470.19, "Telefone": 461.38, "Água": 9658.33}, "DESPESAS EVENTUAIS": {"Diversas": 273.5, "Servicos Prestados": 120.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2357.23, "I.N.S.S.": 10720.73, "P.I.S.": 294.65, "Sindicato dos Empregados": 141.32}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Extintores": 2293.93}, "PESSOAL": {"Adiantamento Salarial": 6392.0, "Empréstimo": 460.97, "Imposto de Renda": 1112.05, "Líquido de Salário": 13940.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 275.58, "Seguro Saúde/Assist. Médica": 625.9, "Vale Transp./Aliment./Refeição": 8949.8}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2753.01}, "SEGUROS": {"Seguro": 1028.54}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 800.0}}, "03/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Correio": 279.7, "Cópias": 40.05, "Freitas Lopes": 3093.85, "Isencao": 778.54, "Tarifas Bancárias": 314.24}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3045.84, "Jardim": 2791.17, "Manutenção Basica": 1553.94, "Material de Limpeza": 914.4, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3699.37, "Gás": 21418.45, "Telefone": 431.77, "Água": 10142.52}, "DESPESAS EVENTUAIS": {"Diversas": 45.0, "Servicos Prestados": 380.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2095.52, "I.N.S.S.": 9498.63, "P.I.S.": 261.94, "Sindicato dos Empregados": 85.92}, "JURÍDICO": {"Assistencia Juridica": 1601.0}, "PERIÓDICAS": {"Extintores": 1479.0}, "PESSOAL": {"Adiantamento Salarial": 5016.0, "Empréstimo": 778.95, "Imposto de Renda": 1346.59, "Líquido de Salário": 13895.0, "Normas Reg. Minist. do Trab.": 411.26, "Pensão Alimentícia": 313.92, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 8659.05}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 206.92}, "SEGUROS": {"Seguro": 861.09}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 531.0}}, "03/2024": {"ADMINISTRATIVAS": {"Auditoria mensal": 527.97, "Cartório": 191.8, "Correio": 147.0, "Cópias": 17.1, "Freitas Lopes": 3233.38, "Isenção/Remuneração": 821.36, "Tarifas Bancárias": 310.33}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 1092.5, "C.F.T.V.": 626.89, "Elevadores": 3188.36, "Jardim": 23.68, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3356.74, "Gás": 14433.1, "Telefone": 449.12, "Água": 11168.55}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 548.33}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2373.19, "I.N.S.S.": 10818.41, "P.I.S.": 296.64, "Sindicato dos Empregados": 296.63}, "JURÍDICO": {"Honorários Advocatícios": 1555.89}, "PERIÓDICAS": {"Extintores": 600.07}, "PESSOAL": {"Adiantamento Salarial": 5959.0, "Empréstimo": 578.95, "Imposto de Renda": 1602.74, "Líquido de Salário": 15563.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 256.0, "Seguro de Vida Funcionários": 365.81, "Uniformes": 998.63, "Vale Transp./Aliment./Refeição": 10443.21}, "PESSOAL TERCEIRIZADO": {"Terceirização Faxina": 1124.14}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 732.35}, "SEGUROS": {"Seguro": 1393.15}}, "03/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 38.25, "Cópias": 51.0, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 385.56, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 6324.34, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4077.65, "Gás": 13764.02, "Telefone": 521.78, "Água": 13996.1}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 405.97}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2663.97, "I.N.S.S.": 12218.15, "P.I.S.": 338.99, "Sindicato dos Empregados": 338.95}, "JURÍDICO": {"Honorários Advocatícios": 1932.89}, "PESSOAL": {"Adiantamento Salarial": 5491.0, "Empréstimo": 446.7, "Imposto de Renda": 2065.42, "Líquido de Salário": 18042.0, "Normas Reg. Minist. do Trab.": 405.7, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 716.96, "Vale Transp./Aliment./Refeição": 11341.15}, "SEGUROS": {"Seguro": 1661.76}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 2384.81}}, "03/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 47.9, "Cópias": 52.22, "E-Social": 40.42, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 437.7, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 720.73, "Elevadores": 3596.6, "Jardim": 595.0, "Material de Limpeza": 1159.85, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4257.73, "Gás": 39972.31, "Prefeitura": 40.42, "Telefone": 667.95}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 744.28}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2629.64, "I.N.S.S.": 11988.08, "P.I.S.": 328.71, "Sindicato dos Empregados": 328.68}, "JURÍDICO": {"Honorários Advocatícios": 1832.5}, "PERIÓDICAS": {"Extintores": 563.42}, "PESSOAL": {"Adiantamento Salarial": 6080.0, "Empréstimo": 1519.46, "Imposto de Renda": 2604.62, "Líquido de Salário": 16704.0, "Manutenção Relógio de Ponto": 124.82, "Normas Reg. Minist. do Trab.": 440.56, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 12809.67}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2, "Terceirização Portaria": 4611.6}, "SEGUROS": {"Seguro": 1716.96}}, "04/2021": {"ADMINISTRATIVAS": {"Correio": 152.5, "Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 622.03}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 1097.78, "Elevadores": 5024.0, "Jardim": 4530.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3145.64, "Gás": 11320.73, "Telefone": 416.4, "Água": 6657.18}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 3377.98}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2221.61, "I.N.S.S.": 10111.65, "P.I.S.": 277.7}, "PERIÓDICAS": {"Extintores": 473.25}, "PESSOAL": {"Adiantamento Salarial": 6421.0, "Empréstimo": 460.97, "Imposto de Renda": 1041.79, "Líquido de Salário": 10730.0, "Pensão Alimentícia": 255.93, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 7971.9}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 130.0}, "SEGUROS": {"Seguro": 708.31}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 8.8}}, "04/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Cópias": 83.05, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 369.9}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 4147.73, "Manutenção Basica": 2592.82, "Material de Limpeza": 987.99, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4343.65, "Gás": 122.87, "Telefone": 442.74, "Água": 9360.34}, "DESPESAS EVENTUAIS": {"Diversas": 165.36, "Servicos Prestados": 896.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2427.15, "I.N.S.S.": 11045.81, "P.I.S.": 303.39, "Sindicato dos Empregados": 141.11}, "JURÍDICO": {"Assistencia Juridica": 2325.65, "Custos Processuais Ultragaz": 2407.04}, "PERIÓDICAS": {"Extintores": 2293.93}, "PESSOAL": {"Adiantamento Salarial": 6795.0, "Imposto de Renda": 981.07, "Líquido de Salário": 14622.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 275.58, "Seguro Saúde/Assist. Médica": 877.9, "Uniformes": 1241.26, "Vale Transp./Aliment./Refeição": 8970.48}, "SEGUROS": {"Seguro": 1028.54}}, "04/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Correio": 79.15, "Cópias": 99.9, "Freitas Lopes": 3093.85, "Isencao": 778.54, "Tarifas Bancárias": 290.31}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3054.84, "Jardim": 431.84, "Manutenção Basica": 4448.79, "Material de Limpeza": 980.81, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4226.6, "Gás": 121.11, "Telefone": 436.67, "Água": 10173.45}, "DESPESAS EVENTUAIS": {"Diversas": 45.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2251.85, "I.N.S.S.": 10267.64, "P.I.S.": 280.09, "Sindicato dos Empregados": 86.14}, "JURÍDICO": {"Assistencia Juridica": 2533.36}, "PERIÓDICAS": {"Extintores": 1479.0}, "PESSOAL": {"Adiantamento Salarial": 5693.0, "Empréstimo": 1025.65, "Imposto de Renda": 1646.42, "Líquido de Salário": 11794.0, "Normas Reg. Minist. do Trab.": 410.56, "Pensão Alimentícia": 319.74, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 9257.91}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 728.0}, "SEGUROS": {"Seguro": 861.09}}, "04/2024": {"ADMINISTRATIVAS": {"Cópias": 15.3, "Isenção/Remuneração": 962.64, "Tarifas Bancárias": 328.36, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 1092.5, "C.F.T.V.": 626.89, "Caixa D'água": 1265.25, "Elevadores": 3188.36, "Jardim": 1837.32, "Material de Limpeza": 325.4, "Sala de Ginástica": 1270.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3826.67, "Gás": 17100.0, "Telefone": 454.83, "Água": 10389.11}, "DESPESAS EVENTUAIS": {"Diversas": 527.97, "Serviços Prestados": 398.33}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 1984.55, "I.N.S.S.": 8218.85, "P.I.S.": 221.31, "Sindicato dos Empregados": 248.06}, "JURÍDICO": {"Honorários Advocatícios": 1726.41}, "PESSOAL": {"Adiantamento Salarial": 4808.0, "Empréstimo": 1473.16, "Imposto de Renda": 1659.46, "Líquido de Salário": 14539.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 9929.75}, "REPAROS/MANUTENÇÕES": {"Aquisição de Equipamentos": 137.3, "Aquisição de Material": 983.2}, "SEGUROS": {"Seguro": 1393.15}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 331.49}}, "04/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Cópias": 112.54, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 376.44, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 3693.16, "Material de Limpeza": 1240.4, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3313.82, "Gás": 18278.69, "Telefone": 606.73, "Água": 12751.84}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 405.98}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2681.14, "I.N.S.S.": 12291.01, "P.I.S.": 335.14, "Sindicato dos Empregados": 335.11}, "JURÍDICO": {"Honorários Advocatícios": 1518.03}, "PESSOAL": {"Adiantamento Salarial": 6284.0, "Empréstimo": 834.58, "Imposto de Renda": 3140.01, "Líquido de Salário": 14445.0, "Normas Reg. Minist. do Trab.": 425.56, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 695.44, "Vale Transp./Aliment./Refeição": 11227.31}, "SEGUROS": {"Seguro": 1661.76}}, "04/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 96.0, "Cópias": 184.22, "E-Social": 40.42, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 360.98, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 953.94, "Elevadores": 3596.6, "Jardim": 595.0, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4168.16, "Gás": 20254.73, "Prefeitura": 40.42, "Telefone": 466.75, "Água": 26550.99}, "DESPESAS EVENTUAIS": {"Aquisição": 349.6, "Diversas": 849.0, "Serviços Prestados": 1028.84}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2904.93, "I.N.S.S.": 13246.29, "P.I.S.": 363.11, "Sindicato dos Empregados": 363.08}, "JURÍDICO": {"Honorários Advocatícios": 3455.1}, "PERIÓDICAS": {"Extintores": 563.26, "Para-raios": 1700.0}, "PESSOAL": {"Adiantamento Salarial": 7110.0, "Empréstimo": 1800.32, "Imposto de Renda": 1257.39, "Líquido de Salário": 14285.0, "Manutenção Relógio de Ponto": 204.82, "Normas Reg. Minist. do Trab.": 440.56, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 12809.67}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1216.38}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 779.92}, "SEGUROS": {"Seguro": 1716.96}}, "05/2021": {"ADMINISTRATIVAS": {"Certificado Digital": 242.0, "Correio": 99.55, "Cópias": 10.15, "Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 677.11}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 3423.08, "Jardim": 550.0, "Material de Limpeza": 831.21, "Sala de Ginástica": 1380.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3037.02, "Gás": 15771.78, "Telefone": 416.4, "Água": 8472.46}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 7825.0}, "ENCARGOS SOCIAIS": {"Encargos sobre Nfs": 60.59, "F.G.T.S.": 2322.5, "I.N.S.S.": 10553.74, "P.I.S.": 290.31}, "PERIÓDICAS": {"Extintores": 473.25}, "PESSOAL": {"Adiantamento Salarial": 6276.0, "Empréstimo": 460.97, "Imposto de Renda": 578.52, "Líquido de Salário": 16974.0, "Pensão Alimentícia": 240.34, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 7898.16}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 771.06}, "SEGUROS": {"Seguro": 708.31}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 50.0}}, "05/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 107.1, "Cópias": 26.6, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 347.55}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 3748.94, "Manutenção Basica": 3904.85, "Material de Limpeza": 1002.0, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3846.65, "Gás": 38165.65, "Telefone": 446.38, "Água": 10105.48}, "DESPESAS EVENTUAIS": {"Diversas": 207.0, "Servicos Prestados": 641.97}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2421.0, "I.N.S.S.": 10968.57, "P.I.S.": 302.62, "Sindicato dos Empregados": 141.05}, "JURÍDICO": {"Assistencia Juridica": 1511.91}, "PERIÓDICAS": {"Extintores": 2293.94}, "PESSOAL": {"Adiantamento Salarial": 6824.0, "Imposto de Renda": 1053.59, "Líquido de Salário": 16816.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 271.05, "Seguro Saúde/Assist. Médica": 625.92, "Uniformes": 1241.27, "Vale Transp./Aliment./Refeição": 8089.47}}, "05/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Cópias": 27.45, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 307.17}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3872.56, "Jardim": 410.0, "Manutenção Basica": 8932.7, "Material de Limpeza": 963.82, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3638.31, "Gás": 49732.05, "Telefone": 440.83, "Água": 10864.31}, "DESPESAS EVENTUAIS": {"Diversas": 90.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2294.14, "I.N.S.S.": 10442.23, "P.I.S.": 286.76, "Sindicato dos Empregados": 94.34}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Extintores": 1479.0}, "PESSOAL": {"Adiantamento Salarial": 5794.0, "Empréstimo": 1025.65, "Imposto de Renda": 841.2, "Líquido de Salário": 14958.0, "Normas Reg. Minist. do Trab.": 410.56, "Pensão Alimentícia": 308.03, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 8585.48}, "SEGUROS": {"Seguro": 861.15}}, "05/2024": {"ADMINISTRATIVAS": {"Cartório": 191.8, "Certificado Digital": 204.0, "Cópias": 14.4, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 352.06, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Caixa D'água": 69.75, "Elevadores": 3188.36, "Interfones": 160.0, "Jardim": 430.49, "Manutenção Sanitária": 767.0, "Material de Limpeza": 1100.27, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3733.62, "Gás": 19737.18, "Telefone": 459.19, "Água": 11417.06}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 398.34}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2281.8, "I.N.S.S.": 10075.09, "P.I.S.": 284.26, "Sindicato dos Empregados": 285.21}, "JURÍDICO": {"Custas Processuais": 1255.85, "Honorários Advocatícios": 3397.31}, "PESSOAL": {"Adiantamento Salarial": 5118.0, "Empréstimo": 1025.65, "Imposto de Renda": 609.12, "Líquido de Salário": 18066.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 8915.49}, "REPAROS/MANUTENÇÕES": {"Aquisição de Equipamentos": 621.42, "Aquisição de Material": 1162.32}, "SEGUROS": {"Seguro": 1393.24}}, "05/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 51.8, "Cópias": 248.66, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 375.98, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 812.06, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3891.68, "Gás": 23900.14, "Telefone": 531.97, "Água": 13259.2}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 1496.5}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2774.93, "I.N.S.S.": 11406.38, "P.I.S.": 311.9, "Sindicato dos Empregados": 311.86}, "JURÍDICO": {"Honorários Advocatícios": 2162.8}, "PESSOAL": {"Adiantamento Salarial": 5536.0, "Empréstimo": 1519.46, "Imposto de Renda": 1936.62, "Líquido de Salário": 16488.61, "Normas Reg. Minist. do Trab.": 425.56, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 695.44, "Vale Transp./Aliment./Refeição": 11185.52}, "SEGUROS": {"Seguro": 1661.79}}, "05/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Cartório": 270.92, "Correio": 49.7, "Cópias": 58.02, "E-Social": 40.42, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1201.33, "Tarifas Bancárias": 349.5, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 751.85, "Elevadores": 5589.41, "Jardim": 595.01, "Material de Limpeza": 1242.85, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4432.91, "Gás": 24325.52, "Prefeitura": 40.42, "Telefone": 667.95, "Água": 14903.84}, "DESPESAS EVENTUAIS": {"Diversas": 1522.08, "Serviços Prestados": 586.85}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2739.91, "I.N.S.S.": 12472.23, "P.I.S.": 342.49, "Sindicato dos Empregados": 342.46}, "JURÍDICO": {"Honorários Advocatícios": 1781.54}, "PERIÓDICAS": {"Extintores": 563.26}, "PESSOAL": {"13º Salário": 7366.0, "Adiantamento Salarial": 6841.0, "Empréstimo": 1115.44, "Imposto de Renda": 1371.2, "Líquido de Salário": 18490.0, "Manutenção Relógio de Ponto": 204.82, "Normas Reg. Minist. do Trab.": 20.49, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 12415.11}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1169.48}, "SEGUROS": {"Seguro": 1716.96}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 118.43}}, "06/2021": {"ADMINISTRATIVAS": {"Correio": 70.7, "Cópias": 15.75, "Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 703.52}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Interfones": 65.0, "Material de Limpeza": 1203.6, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3012.78, "Gás": 138.8, "Telefone": 416.4, "Água": 8297.12}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 3130.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2028.4, "I.N.S.S.": 9169.97, "P.I.S.": 253.55, "Sindicato dos Empregados": 100.46}, "PERIÓDICAS": {"Extintores": 473.25}, "PESSOAL": {"Adiantamento Salarial": 5777.0, "Empréstimo": 460.97, "Imposto de Renda": 935.82, "Líquido de Salário": 13446.0, "Pensão Alimentícia": 259.07, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 7289.87}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 273.7}, "SEGUROS": {"Seguro": 708.31}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 307.15}}, "06/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 72.85, "Cópias": 25.2, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 375.9}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 2900.0, "Manutenção Basica": 3103.2, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3583.56, "Gás": 22421.87, "Telefone": 446.38, "Água": 9073.63}, "DESPESAS EVENTUAIS": {"Diversas": 45.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2141.78, "I.N.S.S.": 9655.68, "P.I.S.": 267.72, "Sindicato dos Empregados": 120.57}, "JURÍDICO": {"Assistencia Juridica": 1411.1, "Custos Processuais Ultragaz": 334.54}, "PESSOAL": {"Adiantamento Salarial": 6233.0, "Imposto de Renda": 1426.56, "Líquido de Salário": 14117.0, "Normas Reg. Minist. do Trab.": 405.76, "Pensão Alimentícia": 280.21, "Seguro Saúde/Assist. Médica": 625.92, "Uniformes": 1241.27, "Vale Transp./Aliment./Refeição": 8984.67}}, "06/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 555.69, "Correio": 38.71, "Cópias": 131.85, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 273.45}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3045.84, "Jardim": 1010.0, "Manutenção Basica": 3644.1, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4063.42, "Gás": 30169.46, "Telefone": 445.84, "Água": 10688.58}, "DESPESAS EVENTUAIS": {"Diversas": 257.02, "Servicos Prestados": 2852.5}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2027.86, "I.N.S.S.": 9188.5, "P.I.S.": 253.48, "Sindicato dos Empregados": 89.84}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Extintores": 1479.0}, "PESSOAL": {"Adiantamento Salarial": 5096.0, "Empréstimo": 1025.65, "Imposto de Renda": 1314.68, "Líquido de Salário": 12664.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 8852.8}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1649.0}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 19.07}}, "06/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Correio": 219.75, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 327.93, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 1716.77, "C.F.T.V.": 626.89, "Elevadores": 4053.28, "Jardim": 1916.4, "Material de Limpeza": 1063.16, "Poço Artesiano": 237.04, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3779.3, "Gás": 227.59, "Telefone": 471.79, "Água": 11200.93}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2559.4, "I.N.S.S.": 11410.8, "P.I.S.": 319.92, "Sindicato dos Empregados": 319.9}, "JURÍDICO": {"Honorários Advocatícios": 1587.02}, "PESSOAL": {"Adiantamento Salarial": 4361.0, "Empréstimo": 1025.65, "Imposto de Renda": 2241.69, "Líquido de Salário": 13689.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 9700.0}, "REPAROS/MANUTENÇÕES": {"Aquisição de Equipamentos": 621.41, "Aquisição de Material": 1805.3, "Pintura": 5857.5}}, "06/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 279.79, "Cópias": 137.27, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 388.05, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 4444.33, "Jardim": 1280.0, "Material de Limpeza": 1109.09, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3954.69, "Gás": 25474.1, "Telefone": 638.92, "Água": 12304.88}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 112.3}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2922.42, "I.N.S.S.": 13012.11, "P.I.S.": 352.12, "Sindicato dos Empregados": 352.08}, "JURÍDICO": {"Honorários Advocatícios": 1712.52}, "PESSOAL": {"Adiantamento Salarial": 6154.0, "Empréstimo": 1519.46, "Imposto de Renda": 1383.03, "Líquido de Salário": 16872.0, "Normas Reg. Minist. do Trab.": 425.56, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 695.44, "Vale Transp./Aliment./Refeição": 11285.14}}, "06/2026": {"ADMINISTRATIVAS": {"Auditoria": 577.77, "Certificado Digital": 183.2, "Correio": 53.55, "Cópias": 48.16, "E-Social": 40.42, "E-Social / EDF-Reinf / DCTFWEB": 130.6, "Isenção/Remuneração": 1201.33, "Tarifas Bancárias": 413.4, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 709.21, "Elevador": 945.4, "Elevadores": 5686.6, "Jardim": 595.0, "Manutenção Sanitária": 849.0, "Portões": 1586.67, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3904.27, "Gás": 27182.65, "Prefeitura": 40.42, "Telefone": 667.95, "Água": 14569.32}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3140.98, "I.N.S.S.": 11702.24, "P.I.S.": 318.96, "Sindicato dos Empregados": 318.95}, "JURÍDICO": {"Custas Processuais": 204.0, "Honorários Advocatícios": 1587.05}, "PESSOAL": {"Adiantamento Salarial": 5760.0, "Empréstimo": 1464.34, "Férias": 5564.51, "Imposto de Renda": 1531.15, "Líquido de Salário": 16428.0, "Manutenção Relógio de Ponto": 204.82, "Normas Reg. Minist. do Trab.": 420.07, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 13209.99}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 808.64}, "SEGUROS": {"Seguro": 1717.02}}, "07/2021": {"ADMINISTRATIVAS": {"Correio": 71.6, "Cópias": 77.7, "Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 665.18}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Jardim": 300.0, "Material de Limpeza": 571.26, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3296.49, "Gás": 34698.19, "Telefone": 416.4, "Água": 9503.2}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 3100.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2052.19, "I.N.S.S.": 9283.12, "P.I.S.": 256.52, "Sindicato dos Empregados": 117.53}, "PESSOAL": {"Adiantamento Salarial": 5762.0, "Empréstimo": 460.97, "Férias": 5326.24, "Imposto de Renda": 627.86, "Líquido de Salário": 12505.0, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 56.33, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 7894.54}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 701.42}, "SEGUROS": {"Seguro": 708.31}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 132.6}}, "07/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Cópias": 18.2, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 354.45}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 2900.0, "Manutenção Basica": 561.8, "Material de Limpeza": 892.45, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3248.44, "Gás": 28137.32, "Telefone": 446.38, "Água": 12043.1}, "DESPESAS EVENTUAIS": {"Diversas": 90.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2631.61, "I.N.S.S.": 10781.83, "P.I.S.": 296.77, "Sindicato dos Empregados": 133.03}, "JURÍDICO": {"Assistencia Juridica": 1334.9}, "PESSOAL": {"Adiantamento Salarial": 6549.0, "Imposto de Renda": 821.45, "Líquido de Salário": 14471.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 280.0, "Seguro Saúde/Assist. Médica": 625.9, "Vale Transp./Aliment./Refeição": 8548.62}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2001.13}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 981.88}}, "07/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Correio": 137.2, "Cópias": 28.8, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 287.53}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3054.84, "Interfones": 225.0, "Jardim": 410.0, "Manutenção Basica": 116.8, "Material de Limpeza": 747.88, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3876.06, "Gás": 26851.25, "Telefone": 445.84, "Água": 11567.55}, "DESPESAS EVENTUAIS": {"Diversas": 90.0, "Servicos Prestados": 3580.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2246.42, "I.N.S.S.": 10250.38, "P.I.S.": 280.8, "Sindicato dos Empregados": 98.33}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 5664.0, "Empréstimo": 1025.65, "Imposto de Renda": 1229.24, "Líquido de Salário": 13186.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 9080.6}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2304.9}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": -8.99}}, "07/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Cópias": 158.06, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 337.12, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 1716.77, "C.F.T.V.": 626.89, "Elevadores": 3188.36, "Jardim": 430.5, "Manutenção Basica": 910.0, "Poço Artesiano": 117.12, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3370.89, "Gás": 49758.95, "Telefone": 481.59, "Água": 11714.42}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 456.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2533.92, "I.N.S.S.": 11480.0, "P.I.S.": 316.74, "Sindicato dos Empregados": 316.71}, "JURÍDICO": {"Honorários Advocatícios": 1702.88}, "PESSOAL": {"Adiantamento Salarial": 5751.0, "Aquisicao de EPI´s": 388.1, "Empréstimo": 1025.55, "Imposto de Renda": 1140.01, "Líquido de Salário": 14781.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 10052.18}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1798.42}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 679.12}}, "07/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 55.3, "Cópias": 191.63, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 380.77, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 1784.97, "Material de Limpeza": 1401.9, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3987.76, "Gás": 32855.82, "Telefone": 663.27, "Água": 13911.53}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 314.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2736.75, "I.N.S.S.": 11445.16, "P.I.S.": 314.85, "Sindicato dos Empregados": 314.83}, "JURÍDICO": {"Honorários Advocatícios": 1967.09}, "PESSOAL": {"Adiantamento Salarial": 5395.0, "Empréstimo": 1519.46, "Imposto de Renda": 1918.22, "Líquido de Salário": 16451.0, "Normas Reg. Minist. do Trab.": 425.56, "Relogio de ponto": 118.48, "Seguro Saúde/Assist. Médica": 695.44, "Vale Transp./Aliment./Refeição": 11432.29}}, "07/2026": {"A CLASSIFICAR": {"Material de Expediente": 169.0}, "ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 49.7, "Cópias": 178.22, "E-Social": 619.42, "E-Social / EDF-Reinf / DCTFWEB": 137.0, "Isenção/Remuneração": 1201.33, "Tarifas Bancárias": 405.08, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 669.21, "Elevadores": 5686.6, "Jardim": 595.0, "Material de Limpeza": 1296.94, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4158.65, "Gás": 28067.59, "Prefeitura": 40.42, "Telefone": 678.95, "Água": 14569.32}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 3988.84}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2724.02, "I.N.S.S.": 12436.42, "P.I.S.": 340.5, "Sindicato dos Empregados": 340.48}, "JURÍDICO": {"Honorários Advocatícios": 2021.39}, "PESSOAL": {"Adiantamento Salarial": 6820.0, "Empréstimo": 1115.44, "Imposto de Renda": 1293.94, "Líquido de Salário": 15501.0, "Manutenção Relógio de Ponto": 204.82, "Normas Reg. Minist. do Trab.": 440.56, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 12929.11}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1460.65}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 183.59}}, "08/2021": {"ADMINISTRATIVAS": {"Cópias": 12.95, "Freitas Lopes": 2650.0, "Isencao": 712.19, "Tarifas Bancárias": 688.65}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Interfones": 65.0, "Material de Limpeza": 579.4, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3705.86, "Gás": 19868.89, "Telefone": 416.4, "Água": 9722.21}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 5876.78}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2094.98, "I.N.S.S.": 9477.75, "P.I.S.": 261.87, "Sindicato dos Empregados": 116.25}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PERIÓDICAS": {"Detetizacao": 750.5}, "PESSOAL": {"Adiantamento Salarial": 5375.0, "Empréstimo": 460.97, "Imposto de Renda": 869.82, "Líquido de Salário": 12647.0, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 259.87, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 6912.09}, "SEGUROS": {"Seguro": 708.31}}, "08/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 35.25, "Cópias": 32.0, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 379.18}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 3089.0, "Manutenção Basica": 116.8, "Material de Limpeza": 1281.58}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3962.23, "Gás": 31033.74, "Telefone": 443.35, "Água": 9915.68}, "DESPESAS EVENTUAIS": {"Diversas": 180.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2382.91, "I.N.S.S.": 10840.35, "P.I.S.": 297.86, "Sindicato dos Empregados": 142.2}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 6712.0, "Imposto de Renda": 1871.33, "Líquido de Salário": 17087.01, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 271.03, "Seguro Saúde/Assist. Médica": 625.9, "Vale Transp./Aliment./Refeição": 9523.9}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 3983.26}}, "08/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Cópias": 29.7, "Freitas Lopes": 3093.85, "Isencao": 821.26, "Tarifas Bancárias": 296.61}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3045.84, "Jardim": 410.0, "Material de Limpeza": 1932.24, "Sala de Ginástica": 1380.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3888.57, "Gás": 23811.51, "Telefone": 445.84, "Água": 14669.1}, "DESPESAS EVENTUAIS": {"Diversas": 90.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2530.24, "I.N.S.S.": 10218.76, "P.I.S.": 280.25, "Sindicato dos Empregados": 92.91}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 4664.0, "Empréstimo": 1025.65, "Imposto de Renda": 1207.98, "Líquido de Salário": 14382.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 8382.5}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2083.0}}, "08/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Correio": 109.65, "Cópias": 105.86, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 341.07, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 2213.88, "C.F.T.V.": 1006.89, "Elevadores": 3188.36, "Jardim": 514.5, "Manutenção Basica": 1040.14, "Material de Limpeza": 1099.05, "Poço Artesiano": 117.12, "Sala de Ginástica": 1380.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3849.95, "Gás": 28656.31, "Telefone": 481.59, "Água": 12378.82}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 24.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2706.22, "I.N.S.S.": 11127.71, "P.I.S.": 304.99, "Sindicato dos Empregados": 304.96}, "JURÍDICO": {"Honorários Advocatícios": 1527.67}, "PESSOAL": {"Adiantamento Salarial": 4856.0, "Empréstimo": 1025.65, "Imposto de Renda": 1585.21, "Líquido de Salário": 15455.0, "Normas Reg. Minist. do Trab.": 410.56, "Relogio de ponto": 118.52, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 9705.61}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 6865.66}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 546.81}}, "08/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 246.26, "Cópias": 55.3, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 385.56, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 491.4, "Manutenção Basica": 2065.78, "Material de Limpeza": 1345.94, "Monitoramento": 1800.0, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4621.39, "Gás": 36431.22, "Telefone": 663.27, "Água": 14865.86}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 2434.12}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2410.83, "I.N.S.S.": 11030.9, "P.I.S.": 301.35, "Sindicato dos Empregados": 301.31}, "JURÍDICO": {"Honorários Advocatícios": 1691.66}, "PESSOAL": {"Adiantamento Salarial": 5698.0, "Empréstimo": 1519.46, "Imposto de Renda": 1950.55, "Líquido de Salário": 14310.0, "Normas Reg. Minist. do Trab.": 418.94, "Relogio de ponto": 124.82, "Seguro Saúde/Assist. Médica": 331.28, "Uniformes": 1245.0, "Vale Transp./Aliment./Refeição": 14149.2}}, "08/2026": {"A CLASSIFICAR": {"Material de Expediente": 169.0, "Troca de Peças Equipamentos": 2263.33}, "ADMINISTRATIVAS": {"Auditoria": 577.77, "Correio": 45.85, "Cópias": 116.65, "E-Social": 619.42, "E-Social / EDF-Reinf / DCTFWEB": 137.0, "Isenção/Remuneração": 1201.33, "Tarifas Bancárias": 391.1, "Taxa de Administração": 3604.88}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 816.46, "C.F.T.V.": 669.21, "Elevadores": 5686.6, "Jardim": 1532.5, "Material de Limpeza": 1033.44, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4681.33, "Gás": 22946.27, "Prefeitura": 40.42, "Telefone": 683.74, "Água": 14569.32}, "DESPESAS EVENTUAIS": {"Diversas": 573.02, "Serviços Prestados": 1911.16}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2753.6, "I.N.S.S.": 11818.72, "P.I.S.": 323.12, "Sindicato dos Empregados": 323.08}, "JURÍDICO": {"Custas Processuais": 109.92, "Honorários Advocatícios": 1814.44}, "PESSOAL": {"Adiantamento Salarial": 5460.0, "Empréstimo": 1813.24, "Imposto de Renda": 3529.19, "Líquido de Salário": 17021.0, "Manutenção Relógio de Ponto": 214.32, "Normas Reg. Minist. do Trab.": 420.07, "Seguro Saúde/Assist. Médica": 336.0, "Seguro de Vida Funcionários": 436.3, "Vale Transp./Aliment./Refeição": 13048.55}, "PESSOAL TERCEIRIZADO": {"Portaria Virtual": 1241.2}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 519.92}}, "09/2021": {"ADMINISTRATIVAS": {"Correio": 107.1, "Cópias": 71.4, "Freitas Lopes": 2650.0, "Isencao": 778.54, "Tarifas Bancárias": 604.35}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Material de Limpeza": 1009.24, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3946.71, "Gás": 15454.69, "Telefone": 416.4, "Água": 9457.58}, "DESPESAS EVENTUAIS": {"Diversas": 715.28, "Servicos Prestados": 821.28}, "ENCARGOS SOCIAIS": {"Encargos sobre Nfs": 39.5, "F.G.T.S.": 2204.07, "I.N.S.S.": 10046.74, "P.I.S.": 275.5}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 5139.0, "Empréstimo": 460.97, "Imposto de Renda": 527.78, "Líquido de Salário": 12842.0, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 259.69, "Seguro Saúde/Assist. Médica": 330.66, "Vale Transp./Aliment./Refeição": 8122.81}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1778.64}}, "09/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Cópias": 24.3, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 368.64}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 5462.69, "Manutenção Basica": 116.8, "Sala de Ginástica": 1380.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3989.68, "Gás": 32751.37, "Telefone": 445.23, "Água": 10781.82}, "DESPESAS EVENTUAIS": {"Diversas": 90.0, "Servicos Prestados": 1600.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2610.43, "I.N.S.S.": 11209.6, "P.I.S.": 312.18, "Sindicato dos Empregados": 149.75}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 6424.0, "Imposto de Renda": 885.81, "Líquido de Salário": 13413.0, "Normas Reg. Minist. do Trab.": 425.46, "Pensão Alimentícia": 284.65, "Recisão Contratual": 81169.5, "Seguro Saúde/Assist. Médica": 652.62, "Vale Transp./Aliment./Refeição": 7859.65}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1185.0}}, "09/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Correio": 80.85, "Cópias": 24.75, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 290.31}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3054.84, "Interfones": 75.0, "Jardim": 410.0, "Manutenção Basica": 767.7}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4064.73, "Gás": 157.11, "Telefone": 454.83, "Água": 12603.16}, "DESPESAS EVENTUAIS": {"Diversas": 45.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2440.32, "I.N.S.S.": 10868.91, "P.I.S.": 305.04, "Sindicato dos Empregados": 253.76}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 5107.0, "Empréstimo": 1025.65, "Imposto de Renda": 2454.68, "Líquido de Salário": 13143.16, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 556.74, "Vale Transp./Aliment./Refeição": 8321.76}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 1046.8}}, "09/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Cópias": 105.41, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 310.33, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 1252.12, "C.F.T.V.": 926.89, "Elevadores": 3188.36, "Jardim": 430.5, "Poço Artesiano": 117.12, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3877.25, "Gás": 22218.92, "Telefone": 481.59, "Água": 12794.55}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 39.33}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2533.45, "I.N.S.S.": 11377.03, "P.I.S.": 316.68, "Sindicato dos Empregados": 316.66}, "JURÍDICO": {"Honorários Advocatícios": 2476.7}, "PESSOAL": {"Adiantamento Salarial": 6261.0, "Empréstimo": 1025.65, "Imposto de Renda": 2956.2, "Líquido de Salário": 12816.0, "Normas Reg. Minist. do Trab.": 410.56, "Relogio de ponto": 583.48, "Seguro Saúde/Assist. Médica": 621.81, "Vale Transp./Aliment./Refeição": 10141.19}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 946.2}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 260.36}}, "09/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 90.78, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 392.38, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 1680.0, "Manutenção Basica": 250.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4951.94, "Gás": 27656.0, "Telefone": 663.27, "Água": 18642.61}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 1290.6}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3035.29, "I.N.S.S.": 13579.48, "P.I.S.": 379.41, "Sindicato dos Empregados": 379.49}, "JURÍDICO": {"Honorários Advocatícios": 1918.74}, "PESSOAL": {"Adiantamento Salarial": 6817.0, "Empréstimo": 1519.46, "Imposto de Renda": 2716.39, "Líquido de Salário": 14286.0, "Normas Reg. Minist. do Trab.": 825.84, "Relogio de ponto": 124.82, "Seguro Saúde/Assist. Médica": 732.44, "Uniformes": 1245.0, "Vale Transp./Aliment./Refeição": 13555.05}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 7818.7}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 2593.37}}, "10/2021": {"ADMINISTRATIVAS": {"Correio": 115.5, "Cópias": 168.91, "Freitas Lopes": 2650.0, "Isencao": 778.54, "Tarifas Bancárias": 583.51}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Material de Limpeza": 858.31, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3737.93, "Gás": 126.66, "Telefone": 431.38, "Água": 9831.72}, "DESPESAS EVENTUAIS": {"Servicos Prestados": 3245.03}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2180.8, "I.N.S.S.": 9661.55, "P.I.S.": 272.6, "Sindicato dos Empregados": 121.23}, "JURÍDICO": {"Assistencia Juridica": 1895.0}, "PESSOAL": {"Adiantamento Salarial": 6222.0, "Empréstimo": 460.97, "Imposto de Renda": 791.5, "Líquido de Salário": 12016.22, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 259.18, "Seguro Saúde/Assist. Médica": 353.78, "Vale Transp./Aliment./Refeição": 8237.94}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 982.64}}, "10/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 214.85, "Cópias": 26.74, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 365.06}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 4689.63, "Manutenção Basica": 3348.2, "Material de Limpeza": 910.9, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4170.54, "Gás": 30293.19, "Telefone": 275.43, "Água": 11238.81}, "DESPESAS EVENTUAIS": {"Diversas": 90.0, "Servicos Prestados": 180.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 1851.7, "I.N.S.S.": 12055.68, "P.I.S.": 322.03, "Sindicato dos Empregados": 169.43}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 5738.0, "Imposto de Renda": 1222.13, "Líquido de Salário": 11436.0, "Normas Reg. Minist. do Trab.": 425.46, "Pensão Alimentícia": 280.93, "Seguro Saúde/Assist. Médica": 599.2, "Vale Transp./Aliment./Refeição": 8031.08}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 4195.39}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 700.0}}, "10/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 515.99, "Correio": 113.5, "Cópias": 305.35, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 300.87}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3054.84, "Jardim": 1890.71, "Manutenção Basica": 2635.61, "Material de Limpeza": 877.61, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4242.63, "Gás": 43551.76, "Telefone": 454.83, "Água": 12806.5}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2267.75, "I.N.S.S.": 10322.7, "P.I.S.": 283.46, "Sindicato dos Empregados": 221.56}, "JURÍDICO": {"Assistencia Juridica": 1830.4}, "PESSOAL": {"Adiantamento Salarial": 5014.0, "Empréstimo": 1025.65, "Imposto de Renda": 760.28, "Líquido de Salário": 13717.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 573.39, "Vale Transp./Aliment./Refeição": 10296.51}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 3113.99}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 117.5}}, "10/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Correio": 35.7, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 344.16, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Elevadores": 3188.36, "Jardim": 430.5, "Manutenção Basica": 3380.21, "Material de Limpeza": 1001.05, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4016.48, "Gás": 22774.1, "Telefone": 481.59, "Água": 13706.17}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 328.78}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2267.43, "I.N.S.S.": 10367.58, "P.I.S.": 283.43, "Sindicato dos Empregados": 283.4}, "JURÍDICO": {"Honorários Advocatícios": 4297.8}, "PESSOAL": {"Adiantamento Salarial": 6318.0, "Empréstimo": 1025.56, "Imposto de Renda": 750.77, "Líquido de Salário": 15725.0, "Normas Reg. Minist. do Trab.": 410.56, "Relogio de ponto": 583.48, "Seguro Saúde/Assist. Médica": 377.71, "Vale Transp./Aliment./Refeição": 10470.82}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 586.02}}, "10/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 190.17, "Cópias": 2.54, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 388.97, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 1543.03, "Material de Limpeza": 1391.84}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4614.26, "Gás": 148.44, "Telefone": 666.05, "Água": 15494.02}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 380.06}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2622.82, "I.N.S.S.": 11935.51, "P.I.S.": 327.85, "Sindicato dos Empregados": 327.8}, "JURÍDICO": {"Honorários Advocatícios": 2456.94}, "PESSOAL": {"Adiantamento Salarial": 6850.0, "Empréstimo": 1519.46, "Imposto de Renda": 940.72, "Líquido de Salário": 12866.0, "Normas Reg. Minist. do Trab.": 460.35, "Relogio de ponto": 124.82, "Seguro Saúde/Assist. Médica": 775.34, "Uniformes": 1448.33, "Vale Transp./Aliment./Refeição": 12279.86}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 2314.5}, "REPAROS/MANUTENÇÕES": {"Aquisição de Equipamentos": 256.56, "Aquisição de Material": 357.63}}, "11/2021": {"ADMINISTRATIVAS": {"Correio": 38.71, "Cópias": 134.05, "Freitas Lopes": 2650.0, "Isencao": 778.54, "Tarifas Bancárias": 595.29}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 5426.0, "Material de Limpeza": 732.83, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3998.93, "Gás": 34039.48, "Telefone": 461.38, "Água": 9439.32}, "DESPESAS EVENTUAIS": {"Diversas": 954.47}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2422.73, "I.N.S.S.": 11061.01, "P.I.S.": 302.84, "Sindicato dos Empregados": 143.12}, "JURÍDICO": {"Assistencia Juridica": 2116.95}, "PESSOAL": {"Adiantamento Salarial": 6721.0, "Empréstimo": 460.97, "Imposto de Renda": 657.85, "Líquido de Salário": 18393.11, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 274.28, "Seguro Saúde/Assist. Médica": 385.62, "Vale Transp./Aliment./Refeição": 9003.03}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 968.04}, "SEGUROS": {"Seguro": 1028.54}}, "11/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 470.0, "Correio": 38.71, "Cópias": 76.65, "Freitas Lopes": 2925.07, "Isencao": 778.54, "Tarifas Bancárias": 351.18}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 4650.0, "Manutenção Basica": 5661.91, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3808.2, "Gás": 23707.11, "Água": 10998.36}, "DESPESAS EVENTUAIS": {"Diversas": 210.72}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2002.03, "I.N.S.S.": 9124.55, "P.I.S.": 250.25, "Sindicato dos Empregados": 224.63}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 4991.0, "Imposto de Renda": 774.9, "Líquido de Salário": 14020.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 307.21, "Seguro Saúde/Assist. Médica": 648.65, "Vale Transp./Aliment./Refeição": 8680.6}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 204.6}}, "11/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Cópias": 24.75, "Freitas Lopes": 3093.85, "Isencao": 821.36, "Tarifas Bancárias": 269.56}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3045.84, "Jardim": 533.5, "Manutenção Basica": 1523.39, "Material de Limpeza": 686.33, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3942.85, "Gás": 20522.04, "Telefone": 454.83, "Água": 12015.76}, "DESPESAS EVENTUAIS": {"Diversas": 45.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2395.14, "I.N.S.S.": 10789.07, "P.I.S.": 299.39, "Sindicato dos Empregados": 299.34}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 6076.0, "Empréstimo": 1025.65, "Imposto de Renda": 1010.0, "Líquido de Salário": 14850.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 254.52, "Seguro de Vida Funcionários": 365.81, "Vale Transp./Aliment./Refeição": 10146.75}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 2075.99}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 641.6}}, "11/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Correio": 38.25, "Cópias": 109.91, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 347.25, "Taxa de Administração": 3233.38}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Elevadores": 3188.36, "Jardim": 430.5, "Manutenção Basica": 3307.54, "Material de Limpeza": 862.86}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4161.06, "Gás": 296.32, "Telefone": 481.59, "Água": 13041.77}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 2500.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2187.38, "I.N.S.S.": 9996.1, "P.I.S.": 273.42, "Sindicato dos Empregados": 273.39}, "JURÍDICO": {"Honorários Advocatícios": 2115.9}, "PESSOAL": {"Adiantamento Salarial": 5591.0, "Empréstimo": 1025.65, "Imposto de Renda": 1291.15, "Líquido de Salário": 13549.0, "Normas Reg. Minist. do Trab.": 692.8, "Relogio de ponto": 583.48, "Seguro Saúde/Assist. Médica": 365.81, "Vale Transp./Aliment./Refeição": 10788.42}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 1085.06}}, "11/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 310.71, "Cópias": -27.35, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 340.42, "Taxa de Administração": 3451.63}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Material de Limpeza": 1042.8, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4598.2, "Gás": 26522.5, "Telefone": 667.95, "Água": 14298.09}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 130.6}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2530.73, "I.N.S.S.": 10975.48, "P.I.S.": 302.35, "Sindicato dos Empregados": 302.33}, "JURÍDICO": {"Honorários Advocatícios": 1993.09}, "PESSOAL": {"Adiantamento Salarial": 6812.0, "Empréstimo": 1519.46, "Imposto de Renda": 1165.2, "Líquido de Salário": 15436.0, "Normas Reg. Minist. do Trab.": 440.56, "Relogio de ponto": 124.82, "Seguro Saúde/Assist. Médica": 841.3, "Uniformes": 203.29, "Vale Transp./Aliment./Refeição": 12863.51}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 1160.0}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 209.7}}, "12/2021": {"ADMINISTRATIVAS": {"Certificado Digital": 242.0, "Correio": 75.6, "Cópias": 29.2, "Freitas Lopes": 4858.33, "Isencao": 778.54, "Tarifas Bancárias": 607.03}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 548.89, "Elevadores": 2713.0, "Material de Limpeza": 874.22, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4367.72, "Gás": 14487.67, "Telefone": 461.38, "Água": 9083.43}, "DESPESAS EVENTUAIS": {"Diversas": 599.52, "Servicos Prestados": 870.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3361.51, "I.N.S.S.": 10008.9, "P.I.S.": 274.89, "Sindicato dos Empregados": 128.17}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 6874.0, "Empréstimo": 460.97, "Imposto de Renda": 1452.97, "Líquido de Salário": 14373.0, "Normas Reg. Minist. do Trab.": 366.66, "Pensão Alimentícia": 896.83, "Seguro Saúde/Assist. Médica": 637.62, "Vale Transp./Aliment./Refeição": 8048.93}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 369.4}, "SEGUROS": {"Seguro": 1028.54}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Tranferencia Fundo Elevadores": 80000.0}}, "12/2022": {"ADMINISTRATIVAS": {"Auditoria mensal": 503.69, "Cópias": 269.05, "Freitas Lopes": 5850.14, "Isencao": 778.54, "Tarifas Bancárias": 319.08}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 604.0, "Elevadores": 4650.0, "Manutenção Basica": 5995.59, "Material de Limpeza": 1048.1, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3634.01, "Gás": 22388.24, "Telefone": 335.77, "Água": 10462.17}, "DESPESAS EVENTUAIS": {"Diversas": 90.0}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 2970.15, "I.N.S.S.": 10643.17, "P.I.S.": 290.66, "Sindicato dos Empregados": 94.93}, "JURÍDICO": {"Assistencia Juridica": 1400.0}, "PESSOAL": {"Adiantamento Salarial": 4776.0, "Empréstimo": 578.95, "Imposto de Renda": 1252.41, "Líquido de Salário": 13551.0, "Normas Reg. Minist. do Trab.": 425.56, "Pensão Alimentícia": 616.86, "Seguro Saúde/Assist. Médica": 546.32, "Vale Transp./Aliment./Refeição": 8656.4}, "SEGUROS": {"Seguro": 861.09}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 120.0}}, "12/2023": {"ADMINISTRATIVAS": {"Auditoria mensal": 527.97, "Cópias": 31.5, "Freitas Lopes": 6187.7, "Isencao": 821.36, "Tarifas Bancárias": 297.72}, "CONSERVAÇÃO/MANUTENÇÃO": {"C.F.T.V.": 626.89, "Elevadores": 3045.84, "Interfones": 80.0, "Jardim": 410.0, "Manutenção Basica": 449.2, "Material de Limpeza": 887.31, "Sala de Ginástica": 690.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4886.48, "Gás": 13986.25, "Telefone": 454.83, "Água": 25423.08}, "DESPESAS EVENTUAIS": {"Diversas": 880.46}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3188.02, "I.N.S.S.": 10692.08, "P.I.S.": 292.74, "Sindicato dos Empregados": 292.73}, "JURÍDICO": {"Assistencia Juridica": 1579.36}, "PESSOAL": {"Adiantamento Salarial": 5762.0, "Empréstimo": 1025.65, "Imposto de Renda": 1656.31, "Líquido de Salário": 15524.0, "Normas Reg. Minist. do Trab.": 410.56, "Seguro Saúde/Assist. Médica": 244.1, "Uniformes": 998.61, "Vale Transp./Aliment./Refeição": 9283.9}, "SEGUROS": {"Seguro": 1393.15}}, "12/2024": {"ADMINISTRATIVAS": {"Auditoria": 527.97, "Correio": 38.25, "Cópias": 157.87, "Isenção/Remuneração": 1030.04, "Tarifas Bancárias": 385.03, "Taxa de Administração": 6466.76}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 755.0, "C.F.T.V.": 626.89, "Elevadores": 3188.36, "Jardim": 1930.5, "Manutenção Basica": 405.97, "Material de Limpeza": 778.09, "Sala de Ginástica": 1380.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 3910.24, "Gás": 43948.63, "Telefone": 545.91, "Água": 12802.08}, "DESPESAS EVENTUAIS": {"Serviços Prestados": 456.89}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3413.23, "I.N.S.S.": 11690.0, "P.I.S.": 616.09, "Sindicato dos Empregados": 317.48}, "JURÍDICO": {"Honorários Advocatícios": 1992.43}, "PESSOAL": {"Adiantamento Salarial": 6281.0, "Empréstimo": 446.7, "Imposto de Renda": 1159.32, "Líquido de Salário": 15521.0, "Normas Reg. Minist. do Trab.": 706.56, "Relogio de ponto": 583.48, "Seguro Saúde/Assist. Médica": 399.44, "Vale Transp./Aliment./Refeição": 10069.08}, "REPAROS/MANUTENÇÕES": {"Aquisição de Material": 4657.38}, "SEGUROS": {"Seguro": 1661.76}, "TRANSFERÊNCIAS/RESSARCIMENTOS": {"Ressarcimento de Despesas": 816.57}}, "12/2025": {"ADMINISTRATIVAS": {"Auditoria": 553.05, "Correio": 47.9, "Cópias": 107.59, "Isenção/Remuneração": 1102.14, "Tarifas Bancárias": 427.02, "Taxa de Administração": 6903.26}, "CONSERVAÇÃO/MANUTENÇÃO": {"Bombas": 780.55, "C.F.T.V.": 669.21, "Elevadores": 3399.48, "Jardim": 520.0, "Manutenção Basica": 4729.16, "Sala de Ginástica": 750.0}, "CONSUMOS PÚBLICOS": {"Energia Elétrica": 4437.6, "Gás": 48378.91, "Telefone": 667.92, "Água": 11084.89}, "ENCARGOS SOCIAIS": {"F.G.T.S.": 3228.3, "I.N.S.S.": 11831.89, "P.I.S.": 324.14, "Sindicato dos Empregados": 324.1}, "JURÍDICO": {"Honorários Advocatícios": 1819.29}, "PESSOAL": {"Adiantamento Salarial": 6562.0, "Empréstimo": 1519.46, "Imposto de Renda": 1630.48, "Líquido de Salário": 16654.0, "Normas Reg. Minist. do Trab.": 440.56, "Relogio de ponto": 124.82, "Seguro Saúde/Assist. Médica": 841.3, "Uniformes": 203.33, "Vale Transp./Aliment./Refeição": 11481.5}, "PESSOAL TERCEIRIZADO": {"Terceirização da Faxina": 1160.0}, "SEGUROS": {"Seguro": 1716.96}}}, "ordem_ordinaria": ["PESSOAL", "ENCARGOS SOCIAIS", "PESSOAL TERCEIRIZADO", "CONSUMOS PÚBLICOS", "CONSERVAÇÃO/MANUTENÇÃO", "REPAROS/MANUTENÇÕES", "PERIÓDICAS", "SEGUROS", "ADMINISTRATIVAS", "JURÍDICO", "DESPESAS EVENTUAIS", "TRANSFERÊNCIAS/RESSARCIMENTOS", "A CLASSIFICAR"], "cat_nao_operacionais": ["TRANSFERÊNCIAS/RESSARCIMENTOS"], "meses": ["03/2021", "04/2021", "05/2021", "06/2021", "07/2021", "08/2021", "09/2021", "10/2021", "11/2021", "12/2021", "01/2022", "02/2022", "03/2022", "04/2022", "05/2022", "06/2022", "07/2022", "08/2022", "09/2022", "10/2022", "11/2022", "12/2022", "01/2023", "02/2023", "03/2023", "04/2023", "05/2023", "06/2023", "07/2023", "08/2023", "09/2023", "10/2023", "11/2023", "12/2023", "01/2024", "02/2024", "03/2024", "04/2024", "05/2024", "06/2024", "07/2024", "08/2024", "09/2024", "10/2024", "11/2024", "12/2024", "01/2025", "02/2025", "03/2025", "04/2025", "05/2025", "06/2025", "07/2025", "08/2025", "09/2025", "10/2025", "11/2025", "12/2025", "01/2026", "02/2026", "03/2026", "04/2026", "05/2026", "06/2026", "07/2026", "08/2026"], "meses_labels": {"03/2021": "Março/2021", "04/2021": "Abril/2021", "05/2021": "Maio/2021", "06/2021": "Junho/2021", "07/2021": "Julho/2021", "08/2021": "Agosto/2021", "09/2021": "Setembro/2021", "10/2021": "Outubro/2021", "11/2021": "Novembro/2021", "12/2021": "Dezembro/2021", "01/2022": "Janeiro/2022", "02/2022": "Fevereiro/2022", "03/2022": "Março/2022", "04/2022": "Abril/2022", "05/2022": "Maio/2022", "06/2022": "Junho/2022", "07/2022": "Julho/2022", "08/2022": "Agosto/2022", "09/2022": "Setembro/2022", "10/2022": "Outubro/2022", "11/2022": "Novembro/2022", "12/2022": "Dezembro/2022", "01/2023": "Janeiro/2023", "02/2023": "Fevereiro/2023", "03/2023": "Março/2023", "04/2023": "Abril/2023", "05/2023": "Maio/2023", "06/2023": "Junho/2023", "07/2023": "Julho/2023", "08/2023": "Agosto/2023", "09/2023": "Setembro/2023", "10/2023": "Outubro/2023", "11/2023": "Novembro/2023", "12/2023": "Dezembro/2023", "01/2024": "Janeiro/2024", "02/2024": "Fevereiro/2024", "03/2024": "Março/2024", "04/2024": "Abril/2024", "05/2024": "Maio/2024", "06/2024": "Junho/2024", "07/2024": "Julho/2024", "08/2024": "Agosto/2024", "09/2024": "Setembro/2024", "10/2024": "Outubro/2024", "11/2024": "Novembro/2024", "12/2024": "Dezembro/2024", "01/2025": "Janeiro/2025", "02/2025": "Fevereiro/2025", "03/2025": "Março/2025", "04/2025": "Abril/2025", "05/2025": "Maio/2025", "06/2025": "Junho/2025", "07/2025": "Julho/2025", "08/2025": "Agosto/2025", "09/2025": "Setembro/2025", "10/2025": "Outubro/2025", "11/2025": "Novembro/2025", "12/2025": "Dezembro/2025", "01/2026": "Janeiro/2026", "02/2026": "Fevereiro/2026", "03/2026": "Março/2026", "04/2026": "Abril/2026", "05/2026": "Maio/2026", "06/2026": "Junho/2026", "07/2026": "Julho/2026", "08/2026": "Agosto/2026"}, "atualizado": "06/10/2026 15:46"};
+
+document.getElementById('upd-ts').textContent = D.atualizado;
+
+const BRL = v => v == null ? '—' : new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+const fmt2 = v => v == null ? '—' : new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+const sign = v => v >= 0 ? 'pos' : 'neg';
+
+function showTab(id, el) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  if(el && el !== 'this') el.classList.add('active');
+  else if(event && event.currentTarget) event.currentTarget.classList.add('active');
+}
+
+const COLORS = ['#1F4E79','#2E75B6','#70AD47','#ED7D31','#A9D18E','#FFC000','#5B9BD5','#FF0000','#843C0C'];
+const FUNDO_COLORS = {'FUNDO DE RESERVA':'#1F4E79','OBRAS/MELHORIAS':'#70AD47',
+  'FÉRIAS / 13º SALÁRIO':'#ED7D31','FUNDO DE MANUTENÇÃO':'#2E75B6','GARAGEM':'#FFC000',
+  'SALA GINÁSTICA/ACADEMIA':'#A9D18E','TRANSFERÊNCIA ENTRE CONTAS':'#999'};
+
+let charts = {};
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── INÍCIO (HOME) ─────────────────────────────────────────────────────────────
+function initInicio() {
+  const sel = document.getElementById('sel-inicio');
+  const meses = D.meses.filter(m => D.ordinaria[m]);
+  meses.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = D.meses_labels[m] || m;
+    sel.appendChild(o);
+  });
+  if(meses.length > 0) sel.value = meses[meses.length - 1];
+  renderInicio();
+}
+
+function renderInicio() {
+  const mes = document.getElementById('sel-inicio').value;
+  const ord = D.ordinaria[mes] || {};
+  const receitas  = ord.creditos  || 0;
+  const despesas  = ord.debitos   || 0;
+  const saldo     = ord.saldo_atual != null ? ord.saldo_atual : null;
+  const despCats  = D.despesas[mes] || {};
+  const despTotal = Object.values(despCats).reduce((s,v)=>s+v, 0);
+  const inad      = (D.inadimplentes[mes] || []).reduce((s,u)=>s+u.total, 0);
+  const inadN     = (D.inadimplentes[mes] || []).length;
+
+  // KPI principal: Receitas (destaque máximo)
+  const saldoClass = saldo != null ? sign(saldo) : '';
+  document.getElementById('kpi-inicio').innerHTML = `
+    <div class="kpi kpi-receita">
+      <div class="kpi-lbl">💚 Total de Receitas</div>
+      <div class="kpi-val pos">${BRL(receitas)}</div>
+      <div class="kpi-sub">Créditos — Conta Ordinária</div>
+    </div>
+    <div class="kpi kpi-desp">
+      <div class="kpi-lbl">🔴 Total de Despesas</div>
+      <div class="kpi-val neg">${BRL(despesas)}</div>
+      <div class="kpi-sub">Débitos — Conta Ordinária</div>
+    </div>
+    <div class="kpi kpi-saldo">
+      <div class="kpi-lbl">⚖️ Saldo Ordinária</div>
+      <div class="kpi-val ${saldoClass}">${saldo != null ? BRL(saldo) : '—'}</div>
+      <div class="kpi-sub">Após créditos e débitos</div>
+    </div>
+    <div class="kpi kpi-inad">
+      <div class="kpi-lbl">⚠️ Inadimplência</div>
+      <div class="kpi-val ${inad > 0 ? 'neg' : 'pos'}">${BRL(inad)}</div>
+      <div class="kpi-sub">${inadN} unidade${inadN !== 1 ? 's' : ''} em atraso</div>
+    </div>
+  `;
+
+  // Gráfico receita vs despesa (últimos 6 meses ou todos disponíveis)
+  const allMes = D.meses.filter(m => D.ordinaria[m]);
+  const vizMes = allMes.slice(-8);
+  const labels  = vizMes.map(m => D.meses_labels[m] || m);
+  const recArr  = vizMes.map(m => D.ordinaria[m]?.creditos || 0);
+  const despArr = vizMes.map(m => D.ordinaria[m]?.debitos  || 0);
+  destroyChart('ch-inicio-bar');
+  charts['ch-inicio-bar'] = new Chart(document.getElementById('ch-inicio-bar'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Receitas',  data: recArr,  backgroundColor: 'rgba(39,174,96,.75)',  borderRadius: 4 },
+      { label: 'Despesas', data: despArr, backgroundColor: 'rgba(192,57,43,.75)', borderRadius: 4 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' '+BRL(ctx.raw) } } },
+      scales: { y: { ticks: { callback: v=>'R$'+fmt2(v) }, grid: {color:'#eee'} } }
+    }
+  });
+
+  // Fundos do mês selecionado
+  const fundos = D.fundos[mes] || [];
+  const kpiFundos = document.getElementById('kpi-fundos-inicio');
+  if(fundos.length === 0) {
+    kpiFundos.innerHTML = '<p style="color:#999;font-size:.88em">Sem dados de fundos para este mês.</p>';
+  } else {
+    kpiFundos.innerHTML = fundos
+      .filter(f => f.conta !== 'TOTAL')
+      .map(f => `
+        <div class="kpi" style="border-left-color:${FUNDO_COLORS[f.conta]||'#2E75B6'}">
+          <div class="kpi-lbl">${f.conta}</div>
+          <div class="kpi-val" style="font-size:1.1em;color:#1F4E79">${BRL(f.saldo_atual)}</div>
+        </div>
+      `).join('');
+  }
+}
+
+// ── DESPESAS ──────────────────────────────────────────────────────────────────
+function initDespesas() {
+  const selAno = document.getElementById('sel-ano');
+  const anos = [...new Set(D.meses.filter(m => D.despesas[m]).map(m => m.split('/')[1]))].sort((a,b)=>b-a);
+  const toAno = document.createElement('option');
+  toAno.value = 'todos'; toAno.textContent = 'Todos';
+  selAno.appendChild(toAno);
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value = a; o.textContent = a; selAno.appendChild(o);
+  });
+  selAno.value = anos[0];
+  filterMesByAno();
+}
+
+function filterMesByAno() {
+  const ano = document.getElementById('sel-ano').value;
+  const sel = document.getElementById('sel-mes');
+  const prevVal = sel.value;
+  sel.innerHTML = '';
+  const tOpt = document.createElement('option');
+  tOpt.value = '__todos__'; tOpt.textContent = 'Todos os meses'; sel.appendChild(tOpt);
+  const meses = D.meses.filter(m => D.despesas[m] && (ano === 'todos' || m.endsWith('/'+ano)));
+  meses.forEach(m => {
+    const o = document.createElement('option'); o.value=m; o.textContent=D.meses_labels[m]||m; sel.appendChild(o);
+  });
+  if(meses.includes(prevVal)) sel.value = prevVal;
+  else sel.selectedIndex = sel.options.length - 1;
+  renderDespesas();
+  renderDespesasTrend();
+}
+
+function renderDespesas() {
+  const mes = document.getElementById('sel-mes').value;
+  const ano = document.getElementById('sel-ano').value;
+  let data = {};
+  if(mes === '__todos__') {
+    const meses = D.meses.filter(m => D.despesas[m] && (ano === 'todos' || m.endsWith('/'+ano)));
+    meses.forEach(m => { Object.entries(D.despesas[m]||{}).forEach(([c,v]) => { data[c] = (data[c]||0)+v; }); });
+  } else {
+    data = D.despesas[mes] || {};
+  }
+  const cats = Object.keys(data).sort((a,b)=>data[b]-data[a]);
+  const vals = cats.map(c=>data[c]);
+  const total = vals.reduce((s,v)=>s+v,0);
+  const mesesLabel = mes==='__todos__'?(ano==='todos'?'Todos os anos':ano):(D.meses_labels[mes]||mes);
+
+  // Receitas: créditos ORDINÁRIA do período selecionado
+  let totalReceitas = null;
+  if(mes === '__todos__') {
+    const mRec = D.meses.filter(m => D.ordinaria[m] && (ano==='todos'||m.endsWith('/'+ano)));
+    if(mRec.length > 0) totalReceitas = mRec.reduce((s,m) => s+(D.ordinaria[m]?.creditos||0), 0);
+  } else {
+    if(D.ordinaria[mes]) totalReceitas = D.ordinaria[mes].creditos;
+  }
+  const recClass = totalReceitas != null ? (totalReceitas >= total ? 'pos' : 'neg') : '';
+  document.getElementById('kpi-desp').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">Total Despesas</div><div class="kpi-val">${BRL(total)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Período</div><div class="kpi-val" style="font-size:1.1em">${mesesLabel}</div></div>
+    <div class="kpi kpi-receita"><div class="kpi-lbl">Total de Receitas</div><div class="kpi-val ${recClass}">${totalReceitas!=null?BRL(totalReceitas):'—'}</div></div>
+  `;
+
+  destroyChart('ch-desp-bar');
+  charts['ch-desp-bar'] = new Chart(document.getElementById('ch-desp-bar'),{
+    type:'bar',
+    data:{ labels:cats, datasets:[{ label:'R$', data:vals, backgroundColor:cats.map((_,i)=>COLORS[i%COLORS.length]), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}}, x:{ticks:{maxRotation:35,font:{size:11}}} }
+    }
+  });
+
+  const tb = document.getElementById('tb-desp');
+  tb.innerHTML = cats.map((c,i) =>
+    `<tr><td>${c}</td><td class="num">${BRL(vals[i])}</td><td class="num">${(vals[i]/total*100).toFixed(1)}%</td></tr>`
+  ).join('') + `<tr class="total-row"><td>TOTAL</td><td class="num">${BRL(total)}</td><td class="num">100%</td></tr>`;
+}
+
+function renderDespesasTrend() {
+  const ano = document.getElementById('sel-ano').value;
+  const meses = D.meses.filter(m => D.despesas[m] && (ano==='todos'||m.endsWith('/'+ano)));
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const totals = meses.map(m => Object.values(D.despesas[m]||{}).reduce((s,v)=>s+v,0));
+  destroyChart('ch-desp-trend');
+  charts['ch-desp-trend'] = new Chart(document.getElementById('ch-desp-trend'),{
+    type:'line',
+    data:{ labels, datasets:[{ label:'Total Despesas', data:totals,
+      borderColor:'#1F4E79', backgroundColor:'rgba(31,78,121,.1)', fill:true, tension:.3, pointRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}} }
+    }
+  });
+}
+
+// ── CONTA ORDINÁRIA ───────────────────────────────────────────────────────────
+function renderOrdinaria() {
+  const meses = D.meses.filter(m => D.ordinaria[m]);
+  const labels   = meses.map(m => D.meses_labels[m]||m);
+  const creditos = meses.map(m => D.ordinaria[m]?.creditos||0);
+  const debitos  = meses.map(m => D.ordinaria[m]?.debitos||0);
+  const saldos   = meses.map(m => D.ordinaria[m]?.saldo_atual||0);
+  const saldosAnt= meses.map(m => D.ordinaria[m]?.saldo_anterior||0);
+  const variacoes= meses.map(m => (D.ordinaria[m]?.saldo_atual||0) - (D.ordinaria[m]?.saldo_anterior||0));
+  const last = meses[meses.length-1];
+  const lo = D.ordinaria[last]||{};
+  const varLast  = (lo.saldo_atual||0) - (lo.saldo_anterior||0);
+
+  document.getElementById('kpi-ord').innerHTML = `
+    <div class="kpi kpi-receita"><div class="kpi-lbl">Receitas (Créditos)</div><div class="kpi-val pos">${BRL(lo.creditos)}</div><div class="kpi-sub">${D.meses_labels[last]||last}</div></div>
+    <div class="kpi kpi-desp"><div class="kpi-lbl">Despesas (Débitos)</div><div class="kpi-val neg">${BRL(lo.debitos)}</div><div class="kpi-sub">${D.meses_labels[last]||last}</div></div>
+    <div class="kpi kpi-saldo"><div class="kpi-lbl">Saldo Atual</div><div class="kpi-val ${sign(lo.saldo_atual)}">${BRL(lo.saldo_atual)}</div><div class="kpi-sub">Último mês disponível</div></div>
+    <div class="kpi" style="border-left-color:${varLast>=0?'#27ae60':'#c0392b'}">
+      <div class="kpi-lbl">Variação no Mês</div>
+      <div class="kpi-val ${sign(varLast)}">${BRL(varLast)}</div>
+      <div class="kpi-sub">Saldo Atual − Saldo Anterior</div>
+    </div>
+  `;
+
+  // Gráfico 1: Receitas vs Despesas
+  destroyChart('ch-ord-recdesp');
+  charts['ch-ord-recdesp'] = new Chart(document.getElementById('ch-ord-recdesp'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Receitas (Créditos)', data: creditos, backgroundColor: 'rgba(39,174,96,.75)',  borderRadius: 4 },
+      { label: 'Despesas (Débitos)',  data: debitos,  backgroundColor: 'rgba(192,57,43,.75)', borderRadius: 4 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' ' + BRL(ctx.raw) } } },
+      scales: { y: { ticks: { callback: v => 'R$' + fmt2(v) }, grid: { color: '#eee' } } }
+    }
+  });
+
+  // Gráfico 2: Variação do Saldo (barras de resultado + linhas de saldo)
+  const varColors = variacoes.map(v => v >= 0 ? 'rgba(39,174,96,.8)' : 'rgba(192,57,43,.8)');
+  const varBorder = variacoes.map(v => v >= 0 ? 'rgba(39,174,96,1)'  : 'rgba(192,57,43,1)');
+  destroyChart('ch-ord-saldo');
+  charts['ch-ord-saldo'] = new Chart(document.getElementById('ch-ord-saldo'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { type: 'line', label: 'Saldo Anterior', data: saldosAnt,
+         borderColor: '#ED7D31', backgroundColor: 'transparent',
+         tension: .3, pointRadius: 4, borderDash: [5,3], order: 1 },
+      { type: 'line', label: 'Saldo Atual', data: saldos,
+         borderColor: '#1F4E79', backgroundColor: 'rgba(31,78,121,.08)',
+         fill: true, tension: .3, pointRadius: 5, order: 2 },
+      { type: 'bar',  label: 'Variação (Resultado)', data: variacoes,
+         backgroundColor: varColors, borderColor: varBorder,
+         borderWidth: 1, borderRadius: 4, yAxisID: 'y1', order: 3 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: ctx => ' ' + BRL(ctx.raw) } } },
+      scales: {
+        y:  { ticks: { callback: v => 'R$' + fmt2(v) }, grid: { color: '#eee' }, title: { display: true, text: 'Saldo (R$)' } },
+        y1: { position: 'right', ticks: { callback: v => 'R$' + fmt2(v) },
+               grid: { drawOnChartArea: false }, title: { display: true, text: 'Variação (R$)' } }
+      }
+    }
+  });
+
+  const tb = document.getElementById('tb-ord');
+  tb.innerHTML = meses.map(m => {
+    const o = D.ordinaria[m];
+    const varM = (o.saldo_atual||0) - (o.saldo_anterior||0);
+    return `<tr>
+      <td>${D.meses_labels[m]||m}</td>
+      <td class="num ${sign(o.saldo_anterior)}">${BRL(o.saldo_anterior)}</td>
+      <td class="num pos">${BRL(o.creditos)}</td>
+      <td class="num neg">${BRL(o.debitos)}</td>
+      <td class="num ${sign(o.saldo_atual)}">${BRL(o.saldo_atual)}</td>
+      <td class="num ${sign(varM)}">${BRL(varM)}</td></tr>`;
+  }).join('');
+}
+
+// ── INADIMPLENTES ─────────────────────────────────────────────────────────────
+function initInad() {
+  const meses = D.meses.filter(m => D.inadimplentes[m] !== undefined);
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const totals = meses.map(m => (D.inadimplentes[m]||[]).reduce((s,u)=>s+u.total,0));
+  destroyChart('ch-inad-bar');
+  charts['ch-inad-bar'] = new Chart(document.getElementById('ch-inad-bar'),{
+    type:'line',
+    data:{ labels, datasets:[{ label:'Total Inadimplência', data:totals,
+      borderColor:'#c0392b', backgroundColor:'rgba(192,57,43,.1)', fill:true, tension:.3, pointRadius:5, pointBackgroundColor:'#c0392b' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}} },
+      scales:{ y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}} }
+    }
+  });
+  const sel = document.getElementById('sel-inad');
+  meses.forEach(m => {
+    const o = document.createElement('option'); o.value=m; o.textContent=D.meses_labels[m]||m; sel.appendChild(o);
+  });
+  if(sel.options.length>0) sel.selectedIndex = sel.options.length-1;
+  renderInad();
+
+  // Tabela anual: arrecadação a menos por inadimplência (Previsto × Realizado)
+  const anos = [...new Set(Object.keys(D.inad_mensal||{}).map(m=>m.split('/')[1]))].sort();
+  const selA = document.getElementById('sel-inad-ano');
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o);
+  });
+  if(selA.options.length>0) selA.selectedIndex = selA.options.length-1;
+  renderInadAno();
+}
+
+function renderInadAno() {
+  const ano = document.getElementById('sel-inad-ano').value;
+  const tb = document.getElementById('tb-inad-ano');
+  const empty = document.getElementById('inad-ano-empty');
+  const meses = Object.keys(D.inad_mensal||{})
+    .filter(m => m.endsWith('/'+ano))
+    .sort((a,b) => parseInt(a) - parseInt(b));
+  if(meses.length===0) { tb.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  let tPrev=0, tReal=0, tDef=0, tRec=0;
+  tb.innerHTML = meses.map(m => {
+    const d = D.inad_mensal[m];
+    tPrev+=d.previsto; tReal+=d.realizado; tDef+=d.deficit; tRec+=d.recuperado;
+    const pct = d.previsto ? (d.deficit/d.previsto*100) : 0;
+    const liq = d.deficit - d.recuperado;
+    return `<tr><td>${D.meses_labels[m]||m}</td>
+      <td class="num">${BRL(d.previsto)}</td>
+      <td class="num">${BRL(d.realizado)}</td>
+      <td class="num ${d.deficit>0?'neg':'pos'}">${BRL(d.deficit)}</td>
+      <td class="num ${d.deficit>0?'neg':'pos'}">${fmt2(pct)}%</td>
+      <td class="num pos">${BRL(d.recuperado)}</td>
+      <td class="num ${liq>0?'neg':'pos'}">${BRL(-liq)}</td></tr>`;
+  }).join('');
+  const tLiq = tDef - tRec;
+  const tPct = tPrev ? (tDef/tPrev*100) : 0;
+  tb.innerHTML += `<tr class="total-row"><td>TOTAL ${ano}</td>
+    <td class="num">${BRL(tPrev)}</td>
+    <td class="num">${BRL(tReal)}</td>
+    <td class="num ${tDef>0?'neg':'pos'}">${BRL(tDef)}</td>
+    <td class="num ${tDef>0?'neg':'pos'}">${fmt2(tPct)}%</td>
+    <td class="num pos">${BRL(tRec)}</td>
+    <td class="num ${tLiq>0?'neg':'pos'}">${BRL(-tLiq)}</td></tr>`;
+}
+
+function renderInad() {
+  const mes = document.getElementById('sel-inad').value;
+  const devs = D.inadimplentes[mes]||[];
+  const tb = document.getElementById('tb-inad');
+  const empty = document.getElementById('inad-empty');
+  if(devs.length===0) { tb.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display='none';
+    const total = devs.reduce((s,u)=>s+u.total,0);
+    tb.innerHTML = devs.map(u=>
+      `<tr><td>${u.bloco||'—'}</td><td>${u.unidade}</td><td class="num">${u.parcelas}</td><td class="num neg">${BRL(u.total)}</td></tr>`
+    ).join('')+`<tr class="total-row"><td colspan="3">TOTAL</td><td class="num neg">${BRL(total)}</td></tr>`;
+  }
+}
+
+// ── FUNDOS ────────────────────────────────────────────────────────────────────
+function renderFundos() {
+  const meses = D.meses.filter(m => D.fundos[m] && D.fundos[m].length>0);
+  const labels = meses.map(m => D.meses_labels[m]||m);
+  const fundNames = [];
+  meses.forEach(m => D.fundos[m].forEach(f => { if(!fundNames.includes(f.conta)) fundNames.push(f.conta); }));
+  const last = meses[meses.length-1];
+  const lastFundos = D.fundos[last]||[];
+  document.getElementById('kpi-fundos').innerHTML = lastFundos
+    .filter(f=>f.conta!=='TOTAL')
+    .map(f=>`<div class="kpi" style="border-left-color:${FUNDO_COLORS[f.conta]||'#2E75B6'}">
+      <div class="kpi-lbl">${f.conta}</div>
+      <div class="kpi-val" style="font-size:1.1em">${BRL(f.saldo_atual)}</div>
+      <div class="kpi-sub">${D.meses_labels[last]||last}</div></div>`).join('');
+  destroyChart('ch-fundos');
+  charts['ch-fundos'] = new Chart(document.getElementById('ch-fundos'),{
+    type:'line', data:{ labels,
+      datasets: fundNames.filter(n=>n!=='TRANSFERÊNCIA ENTRE CONTAS').map((name,i)=>{
+        const data = meses.map(m=>{ const f=(D.fundos[m]||[]).find(x=>x.conta===name); return f?f.saldo_atual:null; });
+        return {label:name,data,borderColor:FUNDO_COLORS[name]||COLORS[i%COLORS.length],backgroundColor:'transparent',tension:.3,pointRadius:5,spanGaps:true};
+      })
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{tooltip:{callbacks:{label:ctx=>' '+BRL(ctx.raw)}}},
+      scales:{y:{ticks:{callback:v=>'R$'+fmt2(v)},grid:{color:'#eee'}}}
+    }
+  });
+  let tbl=`<table><thead><tr><th>Fundo</th>`;
+  meses.forEach(m=>tbl+=`<th class="num">${D.meses_labels[m]||m}</th>`);
+  tbl+='</tr></thead><tbody>';
+  fundNames.forEach(name=>{
+    tbl+=`<tr><td>${name}</td>`;
+    meses.forEach(m=>{
+      const f=(D.fundos[m]||[]).find(x=>x.conta===name);
+      const v=f?f.saldo_atual:null;
+      tbl+=`<td class="num ${v!=null?sign(v):''}">  ${v!=null?BRL(v):'—'}</td>`;
+    });
+    tbl+='</tr>';
+  });
+  tbl+='</tbody></table>';
+  document.getElementById('tb-fundos-wrap').innerHTML=tbl;
+}
+
+// ── CONSUMOS & CONTAS ─────────────────────────────────────────────────────────
+function initConsumos() {
+  // Popula seletor de ano com os anos disponíveis nos dados de consumo
+  const sel = document.getElementById('sel-consumo-ano');
+  const anos = [...new Set(
+    Object.keys(D.consumos).map(m => m.split('/')[1])
+  )].sort((a,b) => b-a);
+  const optTodos = document.createElement('option');
+  optTodos.value = 'todos'; optTodos.textContent = 'Todos os anos'; sel.appendChild(optTodos);
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o);
+  });
+  // Seleciona o ano mais recente por padrão
+  if(anos.length > 0) sel.value = anos[0];
+  renderConsumos();
+}
+
+function renderConsumos() {
+  const ano = document.getElementById('sel-consumo-ano').value;
+
+  // Filtra meses pelo ano selecionado, com dados de consumo
+  const mesesAll = D.meses.filter(m => D.consumos[m]);
+  const meses = mesesAll.filter(m => ano === 'todos' || m.endsWith('/'+ano));
+  const labels = meses.map(m => D.meses_labels[m]||m);
+
+  // Função auxiliar para montar um gráfico de linha de consumo
+  function makeConsumoChart(canvasId, item, borderColor, bgColor) {
+    destroyChart(canvasId);
+    const vals = meses.map(m => D.consumos[m]?.[item] ?? null);
+    charts[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: 'line',
+      data: { labels, datasets: [{
+        label: item,
+        data: vals,
+        borderColor: borderColor,
+        backgroundColor: bgColor,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: borderColor,
+        spanGaps: true
+      }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => ' ' + BRL(ctx.raw),
+            title: ctx => ctx[0].label
+          } }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: { callback: v => 'R$ ' + fmt2(v) },
+            grid: { color: '#eee' }
+          },
+          x: { ticks: { maxRotation: 35, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  makeConsumoChart('ch-consumo-energia', 'Energia Elétrica', '#ED7D31', 'rgba(237,125,49,.12)');
+  makeConsumoChart('ch-consumo-agua',    'Água',             '#2E75B6', 'rgba(46,117,182,.12)');
+  makeConsumoChart('ch-consumo-gas',     'Gás',              '#70AD47', 'rgba(112,173,71,.12)');
+
+  // ── Tabela global de contas — mês mais recente com dados de fundos ──
+  const mesFundos = D.meses.filter(m => D.fundos[m] && D.fundos[m].length > 0);
+  const lastMes = mesFundos[mesFundos.length - 1];
+  if (!lastMes) return;
+  document.getElementById('contas-mes-label').textContent = D.meses_labels[lastMes] || lastMes;
+
+  let rows = '';
+  let totalSA=0, totalCr=0, totalDb=0, totalAt=0;
+
+  // Linha ORDINÁRIA
+  const ord = D.ordinaria[lastMes] || {};
+  if (ord.saldo_atual !== undefined) {
+    totalSA += ord.saldo_anterior || 0;
+    totalCr += ord.creditos       || 0;
+    totalDb += ord.debitos        || 0;
+    totalAt += ord.saldo_atual    || 0;
+    rows += `<tr>
+      <td><strong>ORDINÁRIA</strong></td>
+      <td class="num ${sign(ord.saldo_anterior)}">${BRL(ord.saldo_anterior)}</td>
+      <td class="num pos">${BRL(ord.creditos)}</td>
+      <td class="num neg">${BRL(ord.debitos)}</td>
+      <td class="num ${sign(ord.saldo_atual)}">${BRL(ord.saldo_atual)}</td>
+    </tr>`;
+  }
+
+  // Linhas dos Fundos
+  (D.fundos[lastMes] || []).filter(f => f.conta !== 'TOTAL').forEach(f => {
+    totalSA += f.saldo_anterior || 0;
+    totalCr += f.creditos       || 0;
+    totalDb += f.debitos        || 0;
+    totalAt += f.saldo_atual    || 0;
+    rows += `<tr>
+      <td>${f.conta}</td>
+      <td class="num ${sign(f.saldo_anterior)}">${BRL(f.saldo_anterior)}</td>
+      <td class="num pos">${BRL(f.creditos)}</td>
+      <td class="num neg">${BRL(f.debitos)}</td>
+      <td class="num ${sign(f.saldo_atual)}">${BRL(f.saldo_atual)}</td>
+    </tr>`;
+  });
+
+  // Linha TOTAL GERAL
+  rows += `<tr class="total-row">
+    <td>TOTAL GERAL</td>
+    <td class="num">${BRL(totalSA)}</td>
+    <td class="num pos">${BRL(totalCr)}</td>
+    <td class="num neg">${BRL(totalDb)}</td>
+    <td class="num ${sign(totalAt)}">${BRL(totalAt)}</td>
+  </tr>`;
+
+  document.getElementById('tb-contas-global').innerHTML = rows;
+}
+
+// ── DESPESA ORDINÁRIA REAL ────────────────────────────────────────────────────
+const DOR_NAO_OP = new Set(D.cat_nao_operacionais || []);
+const DOR_CORES = {
+  'PESSOAL':'#1F4E79','ENCARGOS SOCIAIS':'#2E75B6','PESSOAL TERCEIRIZADO':'#5B9BD5',
+  'CONSUMOS PÚBLICOS':'#ED7D31','CONSERVAÇÃO/MANUTENÇÃO':'#70AD47',
+  'REPAROS/MANUTENÇÕES':'#A9D18E','PERIÓDICAS':'#FFC000','SEGUROS':'#8E7CC3',
+  'ADMINISTRATIVAS':'#843C0C','JURÍDICO':'#C00000','DESPESAS EVENTUAIS':'#999999',
+  'TRANSFERÊNCIAS/RESSARCIMENTOS':'#BFBFBF','A CLASSIFICAR':'#e67e22'
+};
+let dorAberta = {};   // categoria -> bool (composição visível)
+
+function initDOR() {
+  const sel = document.getElementById('sel-dor-ano');
+  const anos = [...new Set(Object.keys(D.ord_detalhe||{}).map(m => m.split('/')[1]))]
+                 .sort((a,b) => b - a);
+  anos.forEach(a => {
+    const o = document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o);
+  });
+  if(anos.length > 0) sel.value = anos[0];
+  // Categorias operacionais iniciam expandidas; não-operacionais recolhidas
+  (D.ordem_ordinaria||[]).forEach(c => dorAberta[c] = !DOR_NAO_OP.has(c));
+  renderDOR();
+}
+
+function dorToggle(cat) { dorAberta[cat] = !dorAberta[cat]; renderDOR(); }
+function dorToggleAll(v) { (D.ordem_ordinaria||[]).forEach(c=>dorAberta[c]=v); renderDOR(); }
+
+// Monta a estrutura do ano: categorias e componentes presentes
+function dorEstrutura(meses) {
+  const est = [];   // [{cat, comps:[nome,...]}]
+  (D.ordem_ordinaria||[]).forEach(cat => {
+    const comps = new Set();
+    meses.forEach(m => {
+      const c = (D.ord_detalhe[m]||{})[cat];
+      if(c) Object.keys(c).forEach(k => comps.add(k));
+    });
+    if(comps.size > 0) est.push({cat, comps:[...comps].sort((a,b)=>a.localeCompare(b,'pt-BR'))});
+  });
+  return est;
+}
+
+const dorVal  = (m,cat,comp) => ((D.ord_detalhe[m]||{})[cat]||{})[comp] ?? null;
+const dorCat  = (m,cat) => {
+  const c = (D.ord_detalhe[m]||{})[cat];
+  return c ? Object.values(c).reduce((s,v)=>s+v,0) : null;
+};
+
+function renderDOR() {
+  const ano = document.getElementById('sel-dor-ano').value;
+  document.getElementById('dor-ano-lbl').textContent = ano || '—';
+  const meses = D.meses.filter(m => D.ord_detalhe[m] && m.endsWith('/'+ano));
+  const est = dorEstrutura(meses);
+
+  // ── Alerta de itens não classificados ──
+  const alerta = document.getElementById('dor-alerta');
+  const naoClass = est.find(e => e.cat === 'A CLASSIFICAR');
+  if(naoClass) {
+    alerta.style.display = 'block';
+    alerta.innerHTML = `⚠️ <b>${naoClass.comps.length} item(ns) sem categoria analítica</b> — `
+      + `revise o mapa <code>MAPA_ORDINARIA</code> em <code>processar_condominio.py</code>: `
+      + naoClass.comps.map(c=>`<b>${c}</b>`).join(', ');
+  } else alerta.style.display = 'none';
+
+  // ── Cabeçalho ──
+  let th = `<th class="sticky-l">Categoria / Componente</th>`;
+  meses.forEach(m => th += `<th class="num">${(D.meses_labels[m]||m).split('/')[0]}</th>`);
+  th += `<th class="num" style="background:#2E75B6">Total ${ano}</th>`
+      + `<th class="num" style="background:#2E75B6">Média/mês</th>`;
+  document.getElementById('dor-thead').innerHTML = th;
+
+  const nm = meses.length || 1;
+  const cell = (v, cls) => `<td class="num ${cls||''}">${v==null?'—':BRL(v)}</td>`;
+  let rows = '';
+
+  // ── Linhas por categoria + componentes ──
+  est.forEach(({cat, comps}) => {
+    const vals = meses.map(m => dorCat(m,cat));
+    const tot  = vals.reduce((s,v)=>s+(v||0),0);
+    const open = !!dorAberta[cat];
+    const cor  = DOR_CORES[cat] || '#1F4E79';
+    rows += `<tr class="cat-row" onclick="dorToggle('${cat.replace(/'/g,"\\'")}')">`
+          + `<td class="sticky-l" style="border-left:4px solid ${cor}">`
+          + `<span class="caret">${open?'▾':'▸'}</span> ${cat}`
+          + `<span style="color:#999;font-weight:400;font-size:.9em"> (${comps.length})</span></td>`
+          + vals.map(v=>cell(v)).join('')
+          + cell(tot) + cell(tot/nm) + `</tr>`;
+    comps.forEach(comp => {
+      const cv = meses.map(m => dorVal(m,cat,comp));
+      const ct = cv.reduce((s,v)=>s+(v||0),0);
+      rows += `<tr class="comp-row${open?'':' hid'}">`
+            + `<td class="sticky-l">${comp}</td>`
+            + cv.map(v=>cell(v)).join('')
+            + cell(ct) + cell(ct/nm) + `</tr>`;
+    });
+  });
+
+  // ── Totais ──
+  const catsOp   = est.filter(e => !DOR_NAO_OP.has(e.cat)).map(e=>e.cat);
+  const catsNaoOp= est.filter(e =>  DOR_NAO_OP.has(e.cat)).map(e=>e.cat);
+  const somaCats = (m, lista) => {
+    let s = null;
+    lista.forEach(c => { const v = dorCat(m,c); if(v!=null) s = (s||0)+v; });
+    return s;
+  };
+  const real   = meses.map(m => somaCats(m, catsOp));
+  const naoOp  = meses.map(m => somaCats(m, catsNaoOp));
+  const debTot = meses.map((m,i) => (real[i]==null && naoOp[i]==null) ? null : (real[i]||0)+(naoOp[i]||0));
+  const arrec  = meses.map(m => D.ordinaria[m] ? D.ordinaria[m].creditos : null);
+
+  const sTot = a => a.reduce((s,v)=>s+(v||0),0);
+
+  rows += `<tr class="grand"><td class="sticky-l">💠 DESPESA ORDINÁRIA REAL</td>`
+        + real.map(v=>cell(v)).join('')
+        + cell(sTot(real)) + cell(sTot(real)/nm) + `</tr>`;
+
+  if(catsNaoOp.length) {
+    rows += `<tr class="subtot"><td class="sticky-l">(+) Transferências / Ressarcimentos (não operacional)</td>`
+          + naoOp.map(v=>cell(v)).join('')
+          + cell(sTot(naoOp)) + cell(sTot(naoOp)/nm) + `</tr>`;
+    rows += `<tr class="subtot"><td class="sticky-l">(=) Total Debitado da Conta Ordinária</td>`
+          + debTot.map(v=>cell(v)).join('')
+          + cell(sTot(debTot)) + cell(sTot(debTot)/nm) + `</tr>`;
+  }
+
+  if(arrec.some(v=>v!=null)) {
+    rows += `<tr class="arrec"><td class="sticky-l">📥 Arrecadação (créditos da conta ordinária)</td>`
+          + arrec.map(v=>cell(v)).join('')
+          + cell(sTot(arrec)) + cell(sTot(arrec)/nm) + `</tr>`;
+    const res = meses.map((m,i) => arrec[i]==null ? null : arrec[i]-(real[i]||0));
+    rows += `<tr class="resu"><td class="sticky-l">⚖️ Resultado (Arrecadação − Despesa Real)</td>`
+          + res.map(v=>`<td class="num ${v==null?'':sign(v)}">${v==null?'—':BRL(v)}</td>`).join('')
+          + `<td class="num ${sign(sTot(res))}">${BRL(sTot(res))}</td>`
+          + `<td class="num ${sign(sTot(res))}">${BRL(sTot(res)/nm)}</td></tr>`;
+    const cob = meses.map((m,i) => (arrec[i]==null||!real[i]) ? null : arrec[i]/real[i]*100);
+    rows += `<tr class="resu"><td class="sticky-l">📊 Cobertura da Arrecadação</td>`
+          + cob.map(v=>`<td class="num ${v==null?'':(v>=100?'pos':'neg')}">${v==null?'—':fmt2(v)+'%'}</td>`).join('')
+          + `<td class="num" colspan="2">${sTot(real)?fmt2(sTot(arrec)/sTot(real)*100)+'%':'—'}</td></tr>`;
+  }
+
+  document.getElementById('dor-tbody').innerHTML = rows
+    || `<tr><td colspan="9" style="text-align:center;padding:22px;color:#888">Sem dados para ${ano}.</td></tr>`;
+
+  // ── KPIs ──
+  const totReal = sTot(real);
+  const mesesComDado = real.filter(v=>v!=null).length || 1;
+  const mediaReal = totReal / mesesComDado;
+  const maiorIdx = real.reduce((mi,v,i)=> (v||0) > (real[mi]||0) ? i : mi, 0);
+  const catTotais = catsOp.map(c => ({c, t: meses.reduce((s,m)=>s+(dorCat(m,c)||0),0)}))
+                          .sort((a,b)=>b.t-a.t);
+  const arrecTot = sTot(arrec);
+  const temArrec = arrec.some(v=>v!=null);
+  const resTot = temArrec ? arrecTot - real.reduce((s,v,i)=> arrec[i]!=null ? s+(v||0) : s, 0) : null;
+
+  document.getElementById('kpi-dor').innerHTML = `
+    <div class="kpi kpi-desp"><div class="kpi-lbl">Despesa Real — Total ${ano}</div>
+      <div class="kpi-val">${BRL(totReal)}</div>
+      <div class="kpi-sub">${mesesComDado} ${mesesComDado===1?'mês':'meses'} com dados</div></div>
+    <div class="kpi kpi-saldo"><div class="kpi-lbl">Média Mensal Necessária</div>
+      <div class="kpi-val">${BRL(mediaReal)}</div>
+      <div class="kpi-sub">valor que a arrecadação deve cobrir</div></div>
+    <div class="kpi"><div class="kpi-lbl">Mês de Maior Despesa</div>
+      <div class="kpi-val" style="font-size:1.15em">${BRL(real[maiorIdx])}</div>
+      <div class="kpi-sub">${D.meses_labels[meses[maiorIdx]]||'—'}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Maior Categoria</div>
+      <div class="kpi-val" style="font-size:1.02em">${catTotais[0]?catTotais[0].c:'—'}</div>
+      <div class="kpi-sub">${catTotais[0]?BRL(catTotais[0].t)+' · '+fmt2(catTotais[0].t/(totReal||1)*100)+'% do total':'—'}</div></div>
+    ${temArrec ? `<div class="kpi ${resTot>=0?'kpi-receita':'kpi-inad'}">
+      <div class="kpi-lbl">Resultado Acumulado</div>
+      <div class="kpi-val ${sign(resTot)}">${BRL(resTot)}</div>
+      <div class="kpi-sub">arrecadação − despesa real (meses comparáveis)</div></div>` : ''}`;
+
+  // ── Gráficos ──
+  const labels = meses.map(m => D.meses_labels[m]||m);
+
+  destroyChart('ch-dor-vs');
+  charts['ch-dor-vs'] = new Chart(document.getElementById('ch-dor-vs'), {
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Despesa Ordinária Real', data:real, backgroundColor:'rgba(192,57,43,.75)', order:2},
+      {label:'Arrecadação', data:arrec, type:'line', borderColor:'#27ae60',
+        backgroundColor:'rgba(39,174,96,.1)', tension:.3, pointRadius:5, spanGaps:true, order:1}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+BRL(ctx.raw)}}},
+      scales:{y:{beginAtZero:true, ticks:{callback:v=>'R$ '+fmt2(v)}, grid:{color:'#eee'}},
+               x:{ticks:{maxRotation:35,font:{size:11}}}}
+    }
+  });
+
+  destroyChart('ch-dor-pizza');
+  charts['ch-dor-pizza'] = new Chart(document.getElementById('ch-dor-pizza'), {
+    type:'doughnut',
+    data:{ labels: catTotais.map(x=>x.c),
+      datasets:[{data:catTotais.map(x=>x.t),
+        backgroundColor:catTotais.map(x=>DOR_CORES[x.c]||'#999'), borderWidth:1}] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'right', labels:{boxWidth:12, font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+BRL(ctx.raw)
+          +' ('+fmt2(ctx.raw/(totReal||1)*100)+'%)'}}}
+    }
+  });
+
+  destroyChart('ch-dor-stack');
+  charts['ch-dor-stack'] = new Chart(document.getElementById('ch-dor-stack'), {
+    type:'bar',
+    data:{ labels, datasets: catsOp.map(c => ({
+      label:c, data: meses.map(m => dorCat(m,c) || 0),
+      backgroundColor: DOR_CORES[c] || '#999'
+    })) },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{boxWidth:12, font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+BRL(ctx.raw)}}},
+      scales:{ x:{stacked:true, ticks:{maxRotation:35,font:{size:11}}},
+                y:{stacked:true, beginAtZero:true, ticks:{callback:v=>'R$ '+fmt2(v)}, grid:{color:'#eee'}}}
+    }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+initInicio();
+initDespesas();
+renderOrdinaria();
+initDOR();
+initInad();
+renderFundos();
+initConsumos();
+</script>
+</body>
+</html>
